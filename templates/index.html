@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PredictAAI - Gelişmiş Analiz Motoru</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
-        
+
         * {
             margin: 0;
             padding: 0;
@@ -43,15 +44,22 @@
             width: 100%;
             height: 100%;
             z-index: 0;
-            background: 
+            background:
                 radial-gradient(ellipse at 10% 20%, rgba(102, 126, 234, 0.15) 0%, transparent 50%),
                 radial-gradient(ellipse at 90% 80%, rgba(255, 193, 7, 0.1) 0%, transparent 50%);
             animation: bgPulse 20s ease-in-out infinite;
         }
 
         @keyframes bgPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
         }
 
         .main-wrapper {
@@ -121,8 +129,15 @@
         }
 
         @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+
+            0%,
+            100% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
         }
 
         .logo-text h1 {
@@ -137,8 +152,15 @@
         }
 
         @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
         }
 
         .logo-text p {
@@ -226,7 +248,7 @@
                 grid-template-columns: 1fr;
                 gap: 12px;
             }
-            
+
             .prediction-panel {
                 min-width: 100% !important;
             }
@@ -402,7 +424,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .loading-text {
@@ -438,29 +462,37 @@
             font-weight: 700;
         }
 
-        .form-w { color: var(--success); }
-        .form-d { color: var(--primary); }
-        .form-l { color: var(--danger); }
-        
+        .form-w {
+            color: var(--success);
+        }
+
+        .form-d {
+            color: var(--primary);
+        }
+
+        .form-l {
+            color: var(--danger);
+        }
+
         .filter-panel {
             padding: 15px 20px;
             background: rgba(26, 31, 58, 0.5);
             border-bottom: 1px solid var(--border);
         }
-        
+
         .filter-group {
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
-        
+
         .filter-group label {
             font-size: 11px;
             font-weight: 600;
             color: var(--text-muted);
             text-transform: uppercase;
         }
-        
+
         .filter-group select {
             padding: 8px 12px;
             background: rgba(42, 47, 74, 0.9);
@@ -472,11 +504,11 @@
             cursor: pointer;
             min-width: 130px;
         }
-        
+
         .filter-group select:hover {
             border-color: var(--primary);
         }
-        
+
         .compact-odds {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -502,9 +534,10 @@
         }
     </style>
 </head>
+
 <body>
     <div class="animated-bg"></div>
-    
+
     <div class="main-wrapper">
         <header class="premium-header">
             <div class="header-top">
@@ -526,7 +559,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="logo-section">
                 <div class="logo-orb"></div>
                 <div class="logo-text">
@@ -534,7 +567,7 @@
                     <p>Advanced AI Engine</p>
                 </div>
             </div>
-            
+
             <div class="control-panel">
                 <button class="premium-btn secondary" onclick="manualLoadCSV()">
                     📂 Manuel CSV Yükle
@@ -555,7 +588,7 @@
                     🗑️ Temizle
                 </button>
             </div>
-            
+
             <div class="filter-panel" id="filter-panel" style="display: none;">
                 <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                     <div class="filter-group">
@@ -566,7 +599,7 @@
                             <option value="tomorrow">Yarın</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label>🎯 Min. Güven:</label>
                         <select id="filter-confidence" onchange="applyFilters()">
@@ -577,7 +610,7 @@
                             <option value="80">%80+</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label>📊 Sıralama:</label>
                         <select id="filter-sort" onchange="applyFilters()">
@@ -588,7 +621,7 @@
                             <option value="quality-desc">Veri Kalitesi (Yüksek → Düşük)</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label>🔍 Maç Sonucu:</label>
                         <select id="filter-prediction" onchange="applyFilters()">
@@ -598,7 +631,7 @@
                             <option value="2">Deplasman (2)</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label>📈 Alt/Üst 2.5:</label>
                         <select id="filter-overunder" onchange="applyFilters()">
@@ -607,7 +640,7 @@
                             <option value="under">Alt 2.5</option>
                         </select>
                     </div>
-                    
+
                     <div class="filter-group">
                         <label>🎯 KG Var/Yok:</label>
                         <select id="filter-btts" onchange="applyFilters()">
@@ -616,8 +649,9 @@
                             <option value="no">KG Yok</option>
                         </select>
                     </div>
-                    
-                    <button class="premium-btn secondary" onclick="resetFilters()" style="padding: 8px 16px; margin-left: auto;">
+
+                    <button class="premium-btn secondary" onclick="resetFilters()"
+                        style="padding: 8px 16px; margin-left: auto;">
                         🔄 Sıfırla
                     </button>
                 </div>
@@ -634,7 +668,7 @@
 
     <script>
         const API_BASE_URL = 'https://predictaweb.onrender.com';
-        
+
         let allMatches = [];
         let predictions = {};
         let historicalData = null;
@@ -643,63 +677,95 @@
         let clubMappings = {};
         let apiStatus = 'checking';
 
-        // Gelişmiş Takım Eşleştirme Fonksiyonu
+        // 1. YENİ: Levenshtein Mesafe Algoritması (Harf hatası hesaplama)
+        function levenshteinDistance(a, b) {
+            if (a.length === 0) return b.length;
+            if (b.length === 0) return a.length;
+
+            const matrix = [];
+            for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+            for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+            for (let i = 1; i <= b.length; i++) {
+                for (let j = 1; j <= a.length; j++) {
+                    if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1, // değiştirme
+                            matrix[i][j - 1] + 1,     // ekleme
+                            matrix[i - 1][j] + 1      // silme
+                        );
+                    }
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        // 2. GÜNCELLENMİŞ: İndeksleme Fonksiyonu
+        function buildTeamNameIndex() {
+            teamNameIndex = {};
+            console.log('🔄 Hızlı arama indeksi oluşturuluyor...');
+            const start = Date.now();
+
+            Object.keys(teamStats).forEach(teamName => {
+                const normalized = normalizeTeamName(teamName);
+                // Normalize edilmiş ismi asıl isme eşle
+                if (!teamNameIndex[normalized]) {
+                    teamNameIndex[normalized] = teamName;
+                }
+                
+                // Ayrıca varsa Club Mappings'i de indekse ekle
+                if (clubMappings[normalized]) {
+                    teamNameIndex[normalized] = clubMappings[normalized];
+                }
+            });
+            
+            console.log(`✅ İndeksleme tamamlandı: ${Object.keys(teamNameIndex).length} takım (${Date.now() - start}ms)`);
+        }
+
+        // 3. GÜNCELLENMİŞ: Hızlı Eşleştirme Fonksiyonu
         function enhancedFindTeamStats(teamName) {
             if (!teamName || !teamStats) return null;
             
-            // Direkt eşleşme
-            if (teamStats[teamName]) {
-                console.log(`✅ Direkt eşleşme: ${teamName}`);
-                return teamStats[teamName];
-            }
+            // 1. Adım: Direkt Eşleşme (En Hızlı)
+            if (teamStats[teamName]) return teamStats[teamName];
             
+            // 2. Adım: İndeks Üzerinden Eşleşme (Çok Hızlı)
             const normalized = normalizeTeamName(teamName);
-            console.log(`🔍 Normalize edildi: "${teamName}" -> "${normalized}"`);
+            if (teamNameIndex[normalized]) {
+                const originalName = teamNameIndex[normalized];
+                return teamStats[originalName];
+            }
+
+            // 3. Adım: Club Mappings Kontrolü
+            if (clubMappings[teamName]) return teamStats[clubMappings[teamName]];
+
+            // 4. Adım: Levenshtein Fuzzy Match (Son Çare - İyileştirilmiş)
+            // Sadece benzer uzunluktaki takımları kontrol et
+            let bestMatch = null;
+            let minDistance = 3; // En fazla 3 harf hatasına izin ver
+
+            const candidates = Object.keys(teamNameIndex);
             
-            if (normalized.length < 3) return null;
-            
-            // Normalize edilmiş isimle eşleşme
-            for (const [csvTeam, stats] of Object.entries(teamStats)) {
-                const csvNormalized = normalizeTeamName(csvTeam);
+            for (const candidate of candidates) {
+                // Optimizasyon: Uzunluk farkı çoksa bakma
+                if (Math.abs(candidate.length - normalized.length) > 3) continue;
+
+                const dist = levenshteinDistance(normalized, candidate);
                 
-                if (csvNormalized === normalized) {
-                    console.log(`✅ Normalize eşleşme: ${csvTeam} -> ${teamName}`);
-                    return stats;
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    bestMatch = teamNameIndex[candidate];
                 }
             }
-            
-            // Kelime bazlı fuzzy matching
-            const normalizedWords = normalized.split(/\s+/).filter(w => w.length > 2);
-            
-            if (normalizedWords.length > 0) {
-                let bestMatch = null;
-                let bestScore = 0;
-                let bestTeam = '';
-                
-                for (const [csvTeam, stats] of Object.entries(teamStats)) {
-                    const csvNormalized = normalizeTeamName(csvTeam);
-                    const csvWords = csvNormalized.split(/\s+/).filter(w => w.length > 2);
-                    
-                    const matchCount = normalizedWords.filter(w => 
-                        csvWords.some(cw => cw.includes(w) || w.includes(cw))
-                    ).length;
-                    
-                    const matchRate = matchCount / Math.max(normalizedWords.length, csvWords.length);
-                    
-                    if (matchRate > bestScore && matchRate >= 0.5) {
-                        bestScore = matchRate;
-                        bestMatch = stats;
-                        bestTeam = csvTeam;
-                    }
-                }
-                
-                if (bestMatch) {
-                    console.log(`✅ Fuzzy eşleşme: ${bestTeam} -> ${teamName} (%${(bestScore * 100).toFixed(0)})`);
-                    return bestMatch;
-                }
+
+            if (bestMatch) {
+                console.log(`✅ Fuzzy eşleşme: ${teamName} -> ${bestMatch} (Hata: ${minDistance})`);
+                return teamStats[bestMatch];
             }
             
-            console.log(`❌ Eşleşme bulunamadı: ${teamName}`);
+            // console.log(`❌ Bulunamadı: ${teamName}`);
             return null;
         }
 
@@ -708,7 +774,7 @@
             try {
                 const apiStatusElement = document.getElementById('api-status');
                 const response = await fetchWithTimeout(`${API_BASE_URL}/health`, 5000);
-                
+
                 if (response.ok) {
                     apiStatus = 'online';
                     apiStatusElement.innerHTML = '🌐 API: <span style="color: var(--success)">Çalışıyor</span>';
@@ -737,15 +803,15 @@
         async function wakeUpAPI() {
             const wakeBtn = document.getElementById('wake-api-btn');
             const originalText = wakeBtn.innerHTML;
-            
+
             wakeBtn.innerHTML = '⏳ API Uyandırılıyor...';
             wakeBtn.disabled = true;
-            
+
             showLoading('API uyandırılıyor...', 'Render sunucusu başlatılıyor (30-60 sn sürebilir)');
-            
+
             let attempts = 0;
             const maxAttempts = 10;
-            
+
             try {
                 console.log('🔔 API uyandırma isteği gönderiliyor...');
                 const wakeResponse = await fetch(`${API_BASE_URL}/api/matches/upcoming?force_refresh=true`, {
@@ -757,51 +823,51 @@
             } catch (e) {
                 console.log('⚠️ Uyandırma isteği hata verdi, normal...');
             }
-            
+
             const checkInterval = setInterval(async () => {
                 attempts++;
-                
+
                 showLoading(
                     `API uyandırılıyor... (${attempts}/${maxAttempts})`,
                     'Sunucu başlatılması bekleniyor...'
                 );
-                
+
                 try {
                     const healthResponse = await fetchWithTimeout(`${API_BASE_URL}/health`, 10000);
-                    
+
                     if (healthResponse.ok) {
                         clearInterval(checkInterval);
                         apiStatus = 'online';
-                        
+
                         document.getElementById('api-status').innerHTML = '🌐 API: <span style="color: var(--success)">Çalışıyor</span>';
                         document.getElementById('api-status').classList.add('active');
                         document.getElementById('fetch-matches-btn').disabled = false;
-                        
+
                         wakeBtn.innerHTML = originalText;
                         wakeBtn.disabled = false;
-                        
+
                         showSuccess(`
                             ✅ API başarıyla uyandırıldı!<br>
                             🎯 Artık maçları yükleyebilirsiniz.<br>
                             ⏱️ Toplam süre: ${attempts * 5} saniye
                         `);
-                        
+
                         setTimeout(() => {
                             fetchMatches();
                         }, 2000);
-                        
+
                         return;
                     }
                 } catch (error) {
                     console.log(`⏳ Deneme ${attempts}/${maxAttempts}: API henüz hazır değil`);
                 }
-                
+
                 if (attempts >= maxAttempts) {
                     clearInterval(checkInterval);
-                    
+
                     wakeBtn.innerHTML = originalText;
                     wakeBtn.disabled = false;
-                    
+
                     showError(`
                         ❌ API uyandırılamadı!<br><br>
                         <strong>Olası nedenler:</strong><br>
@@ -817,32 +883,32 @@
             }, 5000);
         }
 
-        // Manuel CSV Yükleme
+        // Manuel CSV Yükleme - GÜNCELLENDİ: Yeni sütun formatını destekler
         function manualLoadCSV() {
             const fileInput = document.createElement('input');
             fileInput.type = 'file';
             fileInput.accept = '.csv';
-            
+
             fileInput.onchange = async (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
-                
+
                 const startTime = Date.now();
                 showLoading('CSV dosyası okunuyor...', `Dosya: ${file.name}`);
-                
+
                 try {
                     const csvContent = await file.text();
                     const loadTime = ((Date.now() - startTime) / 1000).toFixed(1);
-                    
+
                     console.log(`✅ Dosya okundu! Süre: ${loadTime}s`);
                     showLoading(`CSV dosyası işleniyor... (${loadTime}s'de okundu)`, 'Takım istatistikleri hesaplanıyor...');
-                    
+
                     await parseAndLoadCSV(csvContent, 'Manuel');
                 } catch (error) {
                     showError(`CSV yüklenemedi: ${error.message}`);
                 }
             };
-            
+
             fileInput.click();
         }
 
@@ -850,7 +916,7 @@
         async function loadHistoricalData() {
             const startTime = Date.now();
             const container = document.getElementById('match-container');
-            
+
             container.innerHTML = `
                 <div class="premium-loading">
                     <div class="loading-spinner"></div>
@@ -860,17 +926,17 @@
                     </div>
                 </div>
             `;
-            
+
             try {
                 // Önce takım eşleştirmelerini yükle
                 try {
                     document.getElementById('load-status').textContent = 'Takım eşleştirmeleri yükleniyor...';
                     const clubsUrl = 'https://raw.githubusercontent.com/devcem09-cmd/predicta-api/main/data/all_clubs.csv';
-                    const clubsResponse = await fetch(clubsUrl, { 
+                    const clubsResponse = await fetch(clubsUrl, {
                         mode: 'cors',
                         cache: 'no-cache'
                     });
-                    
+
                     if (clubsResponse.ok) {
                         const clubsContent = await clubsResponse.text();
                         parseClubMappings(clubsContent);
@@ -881,19 +947,19 @@
                     console.warn('⚠️ all_clubs.csv yüklenemedi:', clubError.message);
                     document.getElementById('load-status').textContent = '⚠️ Takım eşleştirmeleri atlandı';
                 }
-                
+
                 // BİRLEŞTİRİLMİŞ VERİ SETİNİ YÜKLE
                 document.getElementById('load-status').textContent = 'Birleştirilmiş veri seti yükleniyor (112,869 maç)...';
                 const dataUrl = 'https://raw.githubusercontent.com/devcem09-cmd/predicta-api/main/data/final_unified_dataset.csv';
-                
+
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => {
                     controller.abort();
                     console.warn('⏱️ 20 saniye timeout!');
                 }, 20000);
-                
+
                 console.log('🌐 Birleştirilmiş veri yükleniyor:', dataUrl);
-                const response = await fetch(dataUrl, { 
+                const response = await fetch(dataUrl, {
                     signal: controller.signal,
                     mode: 'cors',
                     cache: 'no-cache',
@@ -901,29 +967,29 @@
                         'Accept': 'text/csv, text/plain, */*'
                     }
                 });
-                
+
                 clearTimeout(timeoutId);
-                
+
                 console.log('📡 Response status:', response.status);
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                
+
                 document.getElementById('load-status').textContent = 'Birleştirilmiş veri işleniyor...';
                 const csvContent = await response.text();
                 const loadTime = ((Date.now() - startTime) / 1000).toFixed(1);
-                
+
                 console.log(`✅ ${csvContent.length} karakter okundu (${loadTime}s)`);
-                
+
                 document.getElementById('load-status').textContent = 'Takım istatistikleri hesaplanıyor...';
                 await parseAndLoadUnifiedCSV(csvContent);
-                
+
             } catch (error) {
                 const loadTime = ((Date.now() - startTime) / 1000).toFixed(1);
-                
+
                 console.error('❌ Birleştirilmiş veri yükleme hatası:', error);
-                
+
                 // Fallback: Eski veri setini dene
                 try {
                     showLoading('Birleştirilmiş veri yüklenemedi, eski veri deneniyor...');
@@ -962,29 +1028,29 @@
         function parseClubMappings(csvContent) {
             clubMappings = {};
             const lines = csvContent.split('\n').filter(line => line.trim());
-            
+
             console.log('🔍 all_clubs.csv ilk satır:', lines[0]);
-            
+
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i];
                 const parts = line.split('|');
-                
+
                 if (parts.length >= 2) {
                     const firstPart = parts[0].trim();
                     const mainName = firstPart.substring(2).trim();
-                    
+
                     const aliases = parts.slice(1).map(p => {
                         return p.split('#')[0].trim();
                     }).filter(a => a.length > 0);
-                    
+
                     if (mainName) {
                         aliases.unshift(mainName);
                     }
-                    
+
                     aliases.forEach(alias => {
                         if (alias.length > 2) {
                             clubMappings[alias] = mainName;
-                            
+
                             const normalized = normalizeTeamName(alias);
                             if (normalized) {
                                 clubMappings[normalized] = mainName;
@@ -993,97 +1059,115 @@
                     });
                 }
             }
-            
+
             console.log(`📋 ${Object.keys(clubMappings).length} takım eşleştirmesi hazır`);
         }
 
+        // GÜNCELLENDİ: Yeni CSV formatını destekleyen fonksiyon
         async function parseAndLoadCSV(csvContent, source = 'Dosya') {
             const parseStart = Date.now();
-            
+
             try {
                 const lines = csvContent.split('\n').filter(line => line.trim());
                 const matches = [];
+
+                // Başlık satırını oku ve sütun eşleştirmelerini yap
+                const headers = lines[0].split(',').map(h => h.trim());
                 
+                // Sütun indekslerini bul
+                const homeTeamIndex = headers.findIndex(h => 
+                    h.toLowerCase().includes('home') && h.toLowerCase().includes('team')
+                );
+                const awayTeamIndex = headers.findIndex(h => 
+                    h.toLowerCase().includes('away') && h.toLowerCase().includes('team')
+                );
+                const dateIndex = headers.findIndex(h => 
+                    h.toLowerCase().includes('date')
+                );
+                const scoreIndex = headers.findIndex(h => 
+                    h.toLowerCase().includes('score') || h.toLowerCase().includes('full time')
+                );
+                const resultIndex = headers.findIndex(h => 
+                    h.toLowerCase().includes('result')
+                );
+                const leagueIndex = headers.findIndex(h => 
+                    h.toLowerCase().includes('league') || h.toLowerCase().includes('division')
+                );
+
+                console.log('📋 CSV Başlıkları:', headers);
+                console.log('🔍 Sütun indeksleri:', { homeTeamIndex, awayTeamIndex, dateIndex, scoreIndex, resultIndex, leagueIndex });
+
                 for (let i = 1; i < lines.length; i++) {
-                    const values = lines[i].split(',');
-                    if (values.length >= 7) {
-                        matches.push({
-                            home_team: values[0]?.trim(),
-                            away_team: values[1]?.trim(),
-                            date: values[2]?.trim(),
-                            home_score: parseInt(values[3]) || 0,
-                            away_score: parseInt(values[4]) || 0,
-                            result: values[5]?.trim(),
-                            league: values[6]?.trim()
-                        });
+                    const values = lines[i].split(',').map(v => v.trim());
+                    
+                    // Skor bilgisini işle (örn: "3-2" -> home_score: 3, away_score: 2)
+                    let home_score = 0;
+                    let away_score = 0;
+                    
+                    if (scoreIndex !== -1 && values[scoreIndex]) {
+                        const scoreParts = values[scoreIndex].split('-');
+                        if (scoreParts.length === 2) {
+                            home_score = parseInt(scoreParts[0]) || 0;
+                            away_score = parseInt(scoreParts[1]) || 0;
+                        }
+                    }
+
+                    const match = {
+                        home_team: homeTeamIndex !== -1 ? values[homeTeamIndex] : null,
+                        away_team: awayTeamIndex !== -1 ? values[awayTeamIndex] : null,
+                        date: dateIndex !== -1 ? values[dateIndex] : null,
+                        home_score: home_score,
+                        away_score: away_score,
+                        result: resultIndex !== -1 ? values[resultIndex] : null,
+                        league: leagueIndex !== -1 ? values[leagueIndex] : null
+                    };
+
+                    // Geçerli bir maçsa ekle (en az takım isimleri olmalı)
+                    if (match.home_team && match.away_team && match.home_team.length > 1 && match.away_team.length > 1) {
+                        matches.push(match);
                     }
                 }
-                
-                historicalData = matches.filter(m => m.home_team && m.away_team);
-                
+
+                historicalData = matches;
+
                 if (historicalData.length === 0) {
                     throw new Error('CSV dosyasında geçerli veri bulunamadı');
                 }
-                
+
                 calculateTeamStats();
                 buildTeamNameIndex();
-                
+
                 const parseTime = ((Date.now() - parseStart) / 1000).toFixed(1);
-                
+
                 document.getElementById('csv-status').innerHTML = `✅ CSV: ${historicalData.length} maç`;
                 document.getElementById('csv-status').classList.add('active');
-                
+
                 console.log(`✅ İstatistikler hesaplandı! Süre: ${parseTime}s`);
                 console.log(`📊 ${Object.keys(teamStats).length} takım analiz edildi`);
-                
+
                 // Hobro takımını test et
                 const hobroStats = enhancedFindTeamStats('Hobro');
                 console.log('Hobro istatistikleri:', hobroStats);
-                
+
                 showSuccess(`
                     ✅ ${historicalData.length} geçmiş maç yüklendi! (${source})<br>
                     📊 ${Object.keys(teamStats).length} takımın istatistikleri hazır!<br>
                     ⚡ İşlem süresi: ${parseTime}s<br><br>
                     🎯 Artık "<strong>Maçları Yükle</strong>" ile devam edebilirsiniz!
                 `);
-                
+
             } catch (error) {
                 showError(`CSV işlenemedi: ${error.message}`);
             }
         }
 
-        function buildTeamNameIndex() {
-            teamNameIndex = {};
-            
-            Object.keys(teamStats).forEach(teamName => {
-                const normalized = normalizeTeamName(teamName);
-                const words = normalized.split(/\s+/).filter(w => w.length > 2);
-                
-                teamNameIndex[normalized] = teamName;
-                
-                words.forEach(word => {
-                    if (!teamNameIndex[word]) {
-                        teamNameIndex[word] = teamName;
-                    }
-                });
-                
-                if (words.length >= 2) {
-                    const combo = words.slice(0, 2).join(' ');
-                    if (!teamNameIndex[combo]) {
-                        teamNameIndex[combo] = teamName;
-                    }
-                }
-            });
-            
-            console.log(`🔍 ${Object.keys(teamNameIndex).length} arama anahtarı oluşturuldu`);
-        }
-
+        // Takım istatistiklerini hesapla - EKSİK FONKSİYON TAMAMLANDI
         function calculateTeamStats() {
             teamStats = {};
-            
+
             for (let i = 0; i < historicalData.length; i++) {
                 const match = historicalData[i];
-                
+
                 if (!teamStats[match.home_team]) {
                     teamStats[match.home_team] = {
                         played: 0, wins: 0, draws: 0, losses: 0,
@@ -1096,7 +1180,7 @@
                         h2h: {}
                     };
                 }
-                
+
                 if (!teamStats[match.away_team]) {
                     teamStats[match.away_team] = {
                         played: 0, wins: 0, draws: 0, losses: 0,
@@ -1109,17 +1193,17 @@
                         h2h: {}
                     };
                 }
-                
+
                 const homeStats = teamStats[match.home_team];
                 const awayStats = teamStats[match.away_team];
-                
+
                 homeStats.played++;
                 homeStats.homeGames++;
                 homeStats.goalsFor += match.home_score;
                 homeStats.goalsAgainst += match.away_score;
                 homeStats.homeGoalsFor += match.home_score;
                 homeStats.homeGoalsAgainst += match.away_score;
-                
+
                 if (match.home_score > match.away_score) {
                     homeStats.wins++;
                     homeStats.homeWins++;
@@ -1133,14 +1217,14 @@
                     homeStats.homeLosses++;
                     homeStats.recentForm.push('L');
                 }
-                
+
                 awayStats.played++;
                 awayStats.awayGames++;
                 awayStats.goalsFor += match.away_score;
                 awayStats.goalsAgainst += match.home_score;
                 awayStats.awayGoalsFor += match.away_score;
                 awayStats.awayGoalsAgainst += match.home_score;
-                
+
                 if (match.away_score > match.home_score) {
                     awayStats.wins++;
                     awayStats.awayWins++;
@@ -1154,14 +1238,14 @@
                     awayStats.awayLosses++;
                     awayStats.recentForm.push('L');
                 }
-                
+
                 if (!homeStats.h2h[match.away_team]) {
                     homeStats.h2h[match.away_team] = { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
                 }
                 if (!awayStats.h2h[match.home_team]) {
                     awayStats.h2h[match.home_team] = { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
                 }
-                
+
                 if (match.home_score > match.away_score) {
                     homeStats.h2h[match.away_team].wins++;
                     awayStats.h2h[match.home_team].losses++;
@@ -1172,13 +1256,13 @@
                     homeStats.h2h[match.away_team].losses++;
                     awayStats.h2h[match.home_team].wins++;
                 }
-                
+
                 homeStats.h2h[match.away_team].goalsFor += match.home_score;
                 homeStats.h2h[match.away_team].goalsAgainst += match.away_score;
                 awayStats.h2h[match.home_team].goalsFor += match.away_score;
                 awayStats.h2h[match.home_team].goalsAgainst += match.home_score;
             }
-            
+
             console.log(`✅ ${Object.keys(teamStats).length} takımın istatistikleri hesaplandı`);
         }
 
@@ -1198,22 +1282,22 @@
         // Gelişmiş Oran Çekme Fonksiyonu - CANLI ORANLAR İÇİN GÜNCELLENDİ
         function extractOdds(match) {
             const odds = match.odds || {};
-            
+
             console.log(`📊 ${match.home_team} vs ${match.away_team} - API'den gelen RAW odds:`, JSON.stringify(odds, null, 2));
-            
+
             // Temel maç sonucu oranları (1X2)
             const baseOdds = {
                 '1': odds['1'] || odds.home_win || odds.home || 2.0,
                 'X': odds['X'] || odds.draw || 3.2,
                 '2': odds['2'] || odds.away_win || odds.away || 3.5
             };
-            
+
             // Alt/Üst 2.5 oranlarını çek - Farklı formatlarda deneme
             let overUnderOdds = {
                 'Over +2.5': 1.9,
                 'Under +2.5': 1.9
             };
-            
+
             // Format 1: "Over/Under +2.5" objesi
             if (odds['Over/Under +2.5']) {
                 overUnderOdds = {
@@ -1249,13 +1333,13 @@
                     'Under +2.5': odds.goals.under_2_5 || odds.goals.under || 1.9
                 };
             }
-            
+
             // KG Var/Yok oranlarını çek - Farklı formatlarda deneme
             let bttsOdds = {
                 'Yes': 1.85,
                 'No': 1.95
             };
-            
+
             // Format 1: "Both Teams To Score" objesi
             if (odds['Both Teams To Score']) {
                 bttsOdds = {
@@ -1284,28 +1368,28 @@
                     'No': odds.both_teams_score.no || 1.95
                 };
             }
-            
+
             const finalOdds = {
                 ...baseOdds,
                 'Over/Under +2.5': overUnderOdds,
                 'Both Teams To Score': bttsOdds
             };
-            
+
             console.log(`✅ İşlenmiş oranlar:`, finalOdds);
-            
+
             return finalOdds;
         }
 
         function smartPredict(match) {
             const odds = extractOdds(match);
-            
+
             if (!odds['1'] || !odds['X'] || !odds['2']) {
                 return null;
             }
 
             const homeStats = enhancedFindTeamStats(match.home_team);
             const awayStats = enhancedFindTeamStats(match.away_team);
-            
+
             console.log(`🔍 Analiz: ${match.home_team} vs ${match.away_team}`);
             console.log(`🏠 ${match.home_team} istatistikleri:`, homeStats ? 'Mevcut' : 'Yok');
             console.log(`✈️ ${match.away_team} istatistikleri:`, awayStats ? 'Mevcut' : 'Yok');
@@ -1324,7 +1408,7 @@
             if (formAnalysis.dataAvailable) {
                 scores['1'] += formAnalysis.homeForm * 0.25;
                 scores['2'] += formAnalysis.awayForm * 0.25;
-                
+
                 const formDiff = Math.abs(formAnalysis.homeForm - formAnalysis.awayForm);
                 if (formDiff < 0.2) {
                     scores['X'] += 0.15;
@@ -1373,7 +1457,7 @@
                 (h2hAnalysis.dataAvailable ? 0.20 : 0) +
                 (venueAnalysis.dataAvailable ? 0.15 : 0)
             ) / 0.60;
-            
+
             confidence = confidence * (0.7 + (dataQuality * 0.3));
 
             const overUnder = predictOverUnder(odds, prediction, formAnalysis, venueAnalysis);
@@ -1403,9 +1487,9 @@
             const homeProb = 1 / home;
             const drawProb = 1 / draw;
             const awayProb = 1 / away;
-            
+
             const total = homeProb + drawProb + awayProb;
-            
+
             const homeWinProb = homeProb / total;
             const drawProbNorm = drawProb / total;
             const awayWinProb = awayProb / total;
@@ -1430,13 +1514,13 @@
                 homeStats = enhancedFindTeamStats(homeTeam);
                 awayStats = enhancedFindTeamStats(awayTeam);
             }
-            
+
             if (!homeStats || !awayStats) {
-                return { 
-                    homeForm: null, 
-                    awayForm: null, 
+                return {
+                    homeForm: null,
+                    awayForm: null,
                     weight: 0.25,
-                    dataAvailable: false 
+                    dataAvailable: false
                 };
             }
 
@@ -1469,20 +1553,20 @@
                 homeStats = enhancedFindTeamStats(homeTeam);
                 awayStats = enhancedFindTeamStats(awayTeam);
             }
-            
+
             if (!homeStats || !awayStats) {
-                return { 
-                    advantage: 'none', 
+                return {
+                    advantage: 'none',
                     weight: 0.20,
-                    dataAvailable: false 
+                    dataAvailable: false
                 };
             }
 
             const homeH2H = homeStats.h2h[awayTeam] || homeStats.h2h[normalizeTeamName(awayTeam)];
-            
+
             if (!homeH2H || (homeH2H.wins + homeH2H.draws + homeH2H.losses) === 0) {
-                return { 
-                    advantage: 'none', 
+                return {
+                    advantage: 'none',
                     weight: 0.10,
                     dataAvailable: false,
                     totalGames: 0
@@ -1517,24 +1601,24 @@
                 homeStats = enhancedFindTeamStats(homeTeam);
                 awayStats = enhancedFindTeamStats(awayTeam);
             }
-            
+
             if (!homeStats || !awayStats) {
-                return { 
-                    homeAdvantage: 0, 
+                return {
+                    homeAdvantage: 0,
                     awayAdvantage: 0,
-                    dataAvailable: false 
+                    dataAvailable: false
                 };
             }
 
-            const homeWinRate = homeStats.homeGames > 0 ? 
+            const homeWinRate = homeStats.homeGames > 0 ?
                 homeStats.homeWins / homeStats.homeGames : 0.5;
-            
-            const awayWinRate = awayStats.awayGames > 0 ? 
+
+            const awayWinRate = awayStats.awayGames > 0 ?
                 awayStats.awayWins / awayStats.awayGames : 0.3;
 
-            const homeAvgGoalsFor = homeStats.homeGames > 0 ? 
+            const homeAvgGoalsFor = homeStats.homeGames > 0 ?
                 homeStats.homeGoalsFor / homeStats.homeGames : 1.5;
-            const awayAvgGoalsFor = awayStats.awayGames > 0 ? 
+            const awayAvgGoalsFor = awayStats.awayGames > 0 ?
                 awayStats.awayGoalsFor / awayStats.awayGames : 1.0;
 
             return {
@@ -1552,7 +1636,7 @@
             const overUnderOdds = odds['Over/Under +2.5'];
             const overOdds = parseFloat(overUnderOdds['Over +2.5']);
             const underOdds = parseFloat(overUnderOdds['Under +2.5']);
-            
+
             let prediction = 'over';
             let confidence = 0.55;
 
@@ -1569,9 +1653,9 @@
             }
 
             if (venueAnalysis.homeAvgGoals && venueAnalysis.awayAvgGoals) {
-                const totalAvgGoals = parseFloat(venueAnalysis.homeAvgGoals) + 
-                                     parseFloat(venueAnalysis.awayAvgGoals);
-                
+                const totalAvgGoals = parseFloat(venueAnalysis.homeAvgGoals) +
+                    parseFloat(venueAnalysis.awayAvgGoals);
+
                 if (totalAvgGoals > 2.7) {
                     prediction = 'over';
                     confidence = Math.min(confidence + 0.08, 0.70);
@@ -1595,7 +1679,7 @@
             const bttsOdds = odds['Both Teams To Score'];
             const yesOdds = parseFloat(bttsOdds['Yes']);
             const noOdds = parseFloat(bttsOdds['No']);
-            
+
             let prediction = true;
             let confidence = 0.52;
 
@@ -1603,9 +1687,9 @@
                 prediction = true;
                 confidence = 0.58;
             } else if (oddsAnalysis.favorite !== 'draw') {
-                const favoriteOdds = oddsAnalysis.favorite === 'home' ? 
+                const favoriteOdds = oddsAnalysis.favorite === 'home' ?
                     parseFloat(odds['1']) : parseFloat(odds['2']);
-                
+
                 if (favoriteOdds < 1.5) {
                     prediction = false;
                     confidence = 0.62;
@@ -1622,28 +1706,28 @@
             }
 
             showLoading('Maçlar yükleniyor...');
-            
+
             try {
                 const response = await fetch(`${API_BASE_URL}/api/matches/upcoming?force_refresh=true`, {
                     mode: 'cors',
                     headers: { 'Content-Type': 'application/json' }
                 });
-                
+
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
+
                 const data = await response.json();
-                
+
                 if (data.success && Array.isArray(data.matches)) {
                     allMatches = data.matches;
-                    
+
                     if (allMatches.length > 0) {
                         console.log('📊 İlk maçın oran yapısı:', allMatches[0].odds);
                     }
-                    
+
                     updateMatchCount();
                     displayMatches(allMatches);
                     document.getElementById('predict-all-btn').disabled = false;
-                    
+
                     showSuccess(`✅ ${allMatches.length} maç yüklendi!`);
                 } else {
                     throw new Error('Geçersiz veri');
@@ -1667,7 +1751,7 @@
                     league_code: 'DK1',
                     odds: {
                         '1': 2.7,
-                        'X': 2.98, 
+                        'X': 2.98,
                         '2': 1.97,
                         'Over/Under +2.5': { 'Over +2.5': 1.9, 'Under +2.5': 1.9 },
                         'Both Teams To Score': { 'Yes': 1.85, 'No': 1.95 }
@@ -1682,19 +1766,19 @@
                     league_code: 'TR1',
                     odds: {
                         '1': 2.10,
-                        'X': 3.20, 
+                        'X': 3.20,
                         '2': 3.50,
                         'Over/Under +2.5': { 'Over +2.5': 1.90, 'Under +2.5': 1.95 },
                         'Both Teams To Score': { 'Yes': 1.85, 'No': 1.95 }
                     }
                 }
             ];
-            
+
             updateMatchCount();
             displayMatches(allMatches);
             document.getElementById('predict-all-btn').disabled = false;
             document.getElementById('filter-panel').style.display = 'block';
-            
+
             showSuccess(`✅ ${allMatches.length} manuel maç yüklendi! Analiz yapabilirsiniz.`);
         }
 
@@ -1707,37 +1791,37 @@
             const predictBtn = document.getElementById('predict-all-btn');
             predictBtn.disabled = true;
             predictBtn.innerHTML = '⏳ Analiz Ediliyor...';
-            
+
             showLoading('Gelişmiş analiz yapılıyor...', 'Oranlar, form, H2H ve ev/deplasman analizi');
-            
+
             predictions = {};
             let successCount = 0;
 
             for (let i = 0; i < allMatches.length; i++) {
                 const match = allMatches[i];
-                
+
                 const prediction = smartPredict(match);
-                
+
                 if (prediction) {
                     predictions[match.match_id] = prediction;
                     successCount++;
                 }
-                
+
                 showLoading(
                     `Analiz ediliyor: ${i + 1}/${allMatches.length}`,
                     `✅ ${successCount} maç analiz edildi`
                 );
-                
+
                 await new Promise(resolve => setTimeout(resolve, 50));
             }
-            
+
             document.getElementById('filter-panel').style.display = 'block';
-            
+
             displayMatches(allMatches);
             predictBtn.disabled = false;
             predictBtn.innerHTML = '🎯 Gelişmiş Analiz Yap';
             updatePredictionCount();
-            
+
             showSuccess(`✅ ${successCount} maç için gelişmiş tahmin üretildi!`);
         }
 
@@ -1748,19 +1832,19 @@
             const predictionFilter = document.getElementById('filter-prediction').value;
             const overunderFilter = document.getElementById('filter-overunder').value;
             const bttsFilter = document.getElementById('filter-btts').value;
-            
+
             let filteredMatches = [...allMatches];
-            
+
             if (dateFilter !== 'all') {
                 const now = new Date();
                 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const tomorrow = new Date(today);
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                
+
                 filteredMatches = filteredMatches.filter(match => {
                     const matchDate = new Date(match.date);
                     const matchDay = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
-                    
+
                     if (dateFilter === 'today') {
                         return matchDay.getTime() === today.getTime();
                     } else if (dateFilter === 'tomorrow') {
@@ -1769,28 +1853,28 @@
                     return true;
                 });
             }
-            
+
             if (confidenceFilter > 0) {
                 filteredMatches = filteredMatches.filter(match => {
                     const pred = predictions[match.match_id];
                     return pred && (pred.confidence * 100) >= confidenceFilter;
                 });
             }
-            
+
             if (predictionFilter !== 'all') {
                 filteredMatches = filteredMatches.filter(match => {
                     const pred = predictions[match.match_id];
                     return pred && pred.prediction === predictionFilter;
                 });
             }
-            
+
             if (overunderFilter !== 'all') {
                 filteredMatches = filteredMatches.filter(match => {
                     const pred = predictions[match.match_id];
                     return pred && pred.over_under && pred.over_under.prediction === overunderFilter;
                 });
             }
-            
+
             if (bttsFilter !== 'all') {
                 filteredMatches = filteredMatches.filter(match => {
                     const pred = predictions[match.match_id];
@@ -1800,7 +1884,7 @@
                     return true;
                 });
             }
-            
+
             if (sortFilter === 'confidence-desc') {
                 filteredMatches.sort((a, b) => {
                     const predA = predictions[a.match_id];
@@ -1822,10 +1906,10 @@
                     return (predB?.dataQuality || 0) - (predA?.dataQuality || 0);
                 });
             }
-            
+
             displayMatches(filteredMatches);
         }
-        
+
         function resetFilters() {
             document.getElementById('filter-date').value = 'all';
             document.getElementById('filter-confidence').value = '0';
@@ -1838,7 +1922,7 @@
 
         function displayMatches(matches) {
             const container = document.getElementById('match-container');
-            
+
             if (matches.length === 0) {
                 container.innerHTML = `
                     <div class="premium-alert warning">
@@ -1847,9 +1931,9 @@
                 `;
                 return;
             }
-            
+
             container.innerHTML = '';
-            
+
             matches.forEach(match => {
                 const prediction = predictions[match.match_id];
                 const card = createMatchCard(match, prediction);
@@ -1860,11 +1944,11 @@
         function createMatchCard(match, prediction) {
             const card = document.createElement('div');
             card.className = 'premium-match-card';
-            
+
             const hasPrediction = prediction && prediction.prediction;
             const confidence = hasPrediction ? (prediction.confidence * 100).toFixed(0) : 0;
             const pred = hasPrediction ? prediction.prediction : '?';
-            
+
             if (hasPrediction) {
                 if (confidence >= 70) {
                     card.style.borderLeftColor = 'var(--success)';
@@ -1874,13 +1958,13 @@
                     card.style.borderLeftWidth = '4px';
                 }
             }
-            
+
             const overUnder = prediction?.over_under || {};
             const btts = prediction?.btts || {};
             const formAnalysis = prediction?.analysis?.form || {};
             const h2hAnalysis = prediction?.analysis?.h2h || {};
             const venueAnalysis = prediction?.analysis?.venue || {};
-            
+
             const formatForm = (formStr) => {
                 if (!formStr) return '<span style="color: var(--text-muted);">N/A</span>';
                 return formStr.split('').map(c => {
@@ -1890,10 +1974,10 @@
                     return c;
                 }).join('');
             };
-            
+
             // ✅ Oranları extractOdds ile çek (düzgün formatta geliyor)
             const odds = extractOdds(match);
-            
+
             card.innerHTML = `
                 <div class="match-header">
                     <div class="team-info">
@@ -1903,11 +1987,11 @@
                         <div class="match-meta">
                             <span class="meta-badge">🏆 ${match.league_name || match.league_code}</span>
                             <span class="meta-badge">📅 ${new Date(match.date).toLocaleDateString('tr-TR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })}</span>
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            })}</span>
                             ${formAnalysis.homeFormStr ? `
                                 <span class="meta-badge">
                                     🏠 Form: <span class="form-indicator">${formatForm(formAnalysis.homeFormStr)}</span>
@@ -2061,14 +2145,14 @@
                         </div>
                 ` : ''}
             `;
-            
+
             return card;
         }
 
         function clearAll() {
             allMatches = [];
             predictions = {};
-            
+
             document.getElementById('match-container').innerHTML = `
                 <div class="premium-alert warning">
                     Maçlar temizlendi. "Maçları Yükle" butonuna tıklayın.
@@ -2115,15 +2199,15 @@
         // Birleştirilmiş CSV'yi işleme
         async function parseAndLoadUnifiedCSV(csvContent) {
             const parseStart = Date.now();
-            
+
             try {
                 const lines = csvContent.split('\n').filter(line => line.trim());
                 const matches = [];
-                
+
                 // Başlık satırını oku
                 const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
                 console.log('📋 Birleştirilmiş veri sütunları:', headers);
-                
+
                 for (let i = 1; i < lines.length; i++) {
                     const values = lines[i].split(',');
                     if (values.length >= headers.length) {
@@ -2131,12 +2215,12 @@
                         headers.forEach((header, index) => {
                             match[header] = values[index]?.trim();
                         });
-                        
+
                         // Skor bilgisini işle
                         if (match.home_score && match.away_score) {
                             match.home_score = parseInt(match.home_score) || 0;
                             match.away_score = parseInt(match.away_score) || 0;
-                            
+
                             // Sonuç bilgisini hesapla (eğer yoksa)
                             if (!match.result) {
                                 if (match.home_score > match.away_score) {
@@ -2148,38 +2232,38 @@
                                 }
                             }
                         }
-                        
+
                         // Geçerli bir maçsa ekle
                         if (match.home_team && match.away_team && match.home_team.length > 1 && match.away_team.length > 1) {
                             matches.push(match);
                         }
                     }
                 }
-                
+
                 historicalData = matches;
-                
+
                 if (historicalData.length === 0) {
                     throw new Error('Birleştirilmiş CSV dosyasında geçerli veri bulunamadı');
                 }
-                
+
                 calculateTeamStatsFromUnified();
                 buildTeamNameIndex();
-                
+
                 const parseTime = ((Date.now() - parseStart) / 1000).toFixed(1);
-                
+
                 document.getElementById('csv-status').innerHTML = `✅ CSV: ${historicalData.length} maç`;
                 document.getElementById('csv-status').classList.add('active');
-                
+
                 console.log(`✅ Birleştirilmiş istatistikler hesaplandı! Süre: ${parseTime}s`);
                 console.log(`📊 ${Object.keys(teamStats).length} takım analiz edildi`);
-                
+
                 showSuccess(`
                     ✅ ${historicalData.length} birleştirilmiş maç yüklendi!<br>
                     📊 ${Object.keys(teamStats).length} takımın istatistikleri hazır!<br>
                     ⚡ İşlem süresi: ${parseTime}s<br><br>
                     🎯 Artık "<strong>Maçları Yükle</strong>" ile devam edebilirsiniz!
                 `);
-                
+
             } catch (error) {
                 showError(`Birleştirilmiş CSV işlenemedi: ${error.message}`);
             }
@@ -2189,18 +2273,18 @@
         function calculateTeamStatsFromUnified() {
             teamStats = {};
             const totalMatches = historicalData.length;
-            
+
             console.log(`🔄 ${totalMatches} birleştirilmiş maç işlenecek...`);
-            
+
             for (let i = 0; i < historicalData.length; i++) {
                 const match = historicalData[i];
                 const homeTeam = match.home_team;
                 const awayTeam = match.away_team;
                 const homeScore = parseInt(match.home_score) || 0;
                 const awayScore = parseInt(match.away_score) || 0;
-                
+
                 if (!homeTeam || !awayTeam) continue;
-                
+
                 // Home team stats
                 if (!teamStats[homeTeam]) {
                     teamStats[homeTeam] = {
@@ -2214,7 +2298,7 @@
                         h2h: {}
                     };
                 }
-                
+
                 // Away team stats  
                 if (!teamStats[awayTeam]) {
                     teamStats[awayTeam] = {
@@ -2228,10 +2312,10 @@
                         h2h: {}
                     };
                 }
-                
+
                 const homeStats = teamStats[homeTeam];
                 const awayStats = teamStats[awayTeam];
-                
+
                 // Home team güncelle
                 homeStats.played++;
                 homeStats.homeGames++;
@@ -2239,7 +2323,7 @@
                 homeStats.goalsAgainst += awayScore;
                 homeStats.homeGoalsFor += homeScore;
                 homeStats.homeGoalsAgainst += awayScore;
-                
+
                 if (homeScore > awayScore) {
                     homeStats.wins++;
                     homeStats.homeWins++;
@@ -2253,7 +2337,7 @@
                     homeStats.homeLosses++;
                     homeStats.recentForm.push('L');
                 }
-                
+
                 // Away team güncelle
                 awayStats.played++;
                 awayStats.awayGames++;
@@ -2261,7 +2345,7 @@
                 awayStats.goalsAgainst += homeScore;
                 awayStats.awayGoalsFor += awayScore;
                 awayStats.awayGoalsAgainst += homeScore;
-                
+
                 if (awayScore > homeScore) {
                     awayStats.wins++;
                     awayStats.awayWins++;
@@ -2275,7 +2359,7 @@
                     awayStats.awayLosses++;
                     awayStats.recentForm.push('L');
                 }
-                
+
                 // H2H istatistikleri
                 if (!homeStats.h2h[awayTeam]) {
                     homeStats.h2h[awayTeam] = { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
@@ -2283,7 +2367,7 @@
                 if (!awayStats.h2h[homeTeam]) {
                     awayStats.h2h[homeTeam] = { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
                 }
-                
+
                 if (homeScore > awayScore) {
                     homeStats.h2h[awayTeam].wins++;
                     awayStats.h2h[homeTeam].losses++;
@@ -2294,13 +2378,13 @@
                     homeStats.h2h[awayTeam].losses++;
                     awayStats.h2h[homeTeam].wins++;
                 }
-                
+
                 homeStats.h2h[awayTeam].goalsFor += homeScore;
                 homeStats.h2h[awayTeam].goalsAgainst += awayScore;
                 awayStats.h2h[homeTeam].goalsFor += awayScore;
                 awayStats.h2h[homeTeam].goalsAgainst += homeScore;
             }
-            
+
             console.log(`✅ ${Object.keys(teamStats).length} takımın istatistikleri birleştirilmiş veriden hesaplandı`);
         }
 
@@ -2308,16 +2392,16 @@
         async function loadFallbackData() {
             console.log('🔄 Fallback veri yükleniyor...');
             const fallbackUrl = 'https://raw.githubusercontent.com/devcem09-cmd/predicta-api/main/data/merged_all.csv';
-            
-            const response = await fetch(fallbackUrl, { 
+
+            const response = await fetch(fallbackUrl, {
                 mode: 'cors',
                 cache: 'no-cache'
             });
-            
+
             if (!response.ok) {
                 throw new Error('Fallback veri de yüklenemedi');
             }
-            
+
             const csvContent = await response.text();
             await parseAndLoadCSV(csvContent, 'Fallback');
         }
@@ -2352,9 +2436,9 @@
                     <strong>🚀 Başlatılıyor...</strong>
                 </div>
             `;
-            
+
             await checkAPIStatus();
-            
+
             setTimeout(() => {
                 loadHistoricalData().catch(error => {
                     console.error('CSV yükleme hatası:', error);
@@ -2381,4 +2465,5 @@
         });
     </script>
 </body>
+
 </html>
