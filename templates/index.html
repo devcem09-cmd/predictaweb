@@ -734,6 +734,39 @@
             const normalizedInput = normalizeTeamName(teamName);
             console.log(`🔍 Matching: "${teamName}" -> normalized: "${normalizedInput}"`);
 
+            // 4. YENİ: String Benzerlik Fonksiyonu - İYİLEŞTİRİLMİŞ
+            function stringSimilarity(str1, str2) {
+                if (str1 === str2) return 1.0;
+                if (str1.length === 0 || str2.length === 0) return 0.0;
+
+                // Kısmi eşleşme bonusu (Lyon içinde Olympique Lyon varsa)
+                if (str1.includes(str2) || str2.includes(str1)) {
+                    const lengthRatio = Math.min(str1.length, str2.length) / Math.max(str1.length, str2.length);
+                    return 0.85 + (lengthRatio * 0.15); // En az 0.85 benzerlik
+                }
+
+                const matrix = [];
+                for (let i = 0; i <= str2.length; i++) {
+                    matrix[i] = [i];
+                }
+                for (let j = 0; j <= str1.length; j++) {
+                    matrix[0][j] = j;
+                }
+                for (let i = 1; i <= str2.length; i++) {
+                    for (let j = 1; j <= str1.length; j++) {
+                        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
+                    }
+                }
+                return 1 - matrix[str2.length][str1.length] / Math.max(str1.length, str2.length);
+            }
             // 0. Manuel mapping kontrolü (EN ÖNCE)
             if (manualMappings[teamName.toLowerCase()]) {
                 const mappedTeam = manualMappings[teamName.toLowerCase()];
@@ -810,7 +843,7 @@
             console.log(`✗ No match found for "${teamName}"`);
             return null;
         }
-
+        
         // API Uyandırma
         async function wakeUpAPI() {
             const wakeBtn = document.getElementById('wake-api-btn');
