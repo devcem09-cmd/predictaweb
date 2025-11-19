@@ -714,59 +714,14 @@
                 if (!teamNameIndex[normalized]) {
                     teamNameIndex[normalized] = teamName;
                 }
-                
+
                 // Ayrıca varsa Club Mappings'i de indekse ekle
                 if (clubMappings[normalized]) {
                     teamNameIndex[normalized] = clubMappings[normalized];
                 }
             });
-            
+
             console.log(`✅ İndeksleme tamamlandı: ${Object.keys(teamNameIndex).length} takım (${Date.now() - start}ms)`);
-        }
-
-        // 3. GÜNCELLENMİŞ: Hızlı Eşleştirme Fonksiyonu
-        function enhancedFindTeamStats(teamName) {
-            if (!teamName || !teamStats) return null;
-            
-            // 1. Adım: Direkt Eşleşme (En Hızlı)
-            if (teamStats[teamName]) return teamStats[teamName];
-            
-            // 2. Adım: İndeks Üzerinden Eşleşme (Çok Hızlı)
-            const normalized = normalizeTeamName(teamName);
-            if (teamNameIndex[normalized]) {
-                const originalName = teamNameIndex[normalized];
-                return teamStats[originalName];
-            }
-
-            // 3. Adım: Club Mappings Kontrolü
-            if (clubMappings[teamName]) return teamStats[clubMappings[teamName]];
-
-            // 4. Adım: Levenshtein Fuzzy Match (Son Çare - İyileştirilmiş)
-            // Sadece benzer uzunluktaki takımları kontrol et
-            let bestMatch = null;
-            let minDistance = 3; // En fazla 3 harf hatasına izin ver
-
-            const candidates = Object.keys(teamNameIndex);
-            
-            for (const candidate of candidates) {
-                // Optimizasyon: Uzunluk farkı çoksa bakma
-                if (Math.abs(candidate.length - normalized.length) > 3) continue;
-
-                const dist = levenshteinDistance(normalized, candidate);
-                
-                if (dist < minDistance) {
-                    minDistance = dist;
-                    bestMatch = teamNameIndex[candidate];
-                }
-            }
-
-            if (bestMatch) {
-                console.log(`✅ Fuzzy eşleşme: ${teamName} -> ${bestMatch} (Hata: ${minDistance})`);
-                return teamStats[bestMatch];
-            }
-            
-            // console.log(`❌ Bulunamadı: ${teamName}`);
-            return null;
         }
 
         // API Durum Kontrolü
@@ -1073,24 +1028,24 @@
 
                 // Başlık satırını oku ve sütun eşleştirmelerini yap
                 const headers = lines[0].split(',').map(h => h.trim());
-                
+
                 // Sütun indekslerini bul
-                const homeTeamIndex = headers.findIndex(h => 
+                const homeTeamIndex = headers.findIndex(h =>
                     h.toLowerCase().includes('home') && h.toLowerCase().includes('team')
                 );
-                const awayTeamIndex = headers.findIndex(h => 
+                const awayTeamIndex = headers.findIndex(h =>
                     h.toLowerCase().includes('away') && h.toLowerCase().includes('team')
                 );
-                const dateIndex = headers.findIndex(h => 
+                const dateIndex = headers.findIndex(h =>
                     h.toLowerCase().includes('date')
                 );
-                const scoreIndex = headers.findIndex(h => 
+                const scoreIndex = headers.findIndex(h =>
                     h.toLowerCase().includes('score') || h.toLowerCase().includes('full time')
                 );
-                const resultIndex = headers.findIndex(h => 
+                const resultIndex = headers.findIndex(h =>
                     h.toLowerCase().includes('result')
                 );
-                const leagueIndex = headers.findIndex(h => 
+                const leagueIndex = headers.findIndex(h =>
                     h.toLowerCase().includes('league') || h.toLowerCase().includes('division')
                 );
 
@@ -1099,11 +1054,11 @@
 
                 for (let i = 1; i < lines.length; i++) {
                     const values = lines[i].split(',').map(v => v.trim());
-                    
+
                     // Skor bilgisini işle (örn: "3-2" -> home_score: 3, away_score: 2)
                     let home_score = 0;
                     let away_score = 0;
-                    
+
                     if (scoreIndex !== -1 && values[scoreIndex]) {
                         const scoreParts = values[scoreIndex].split('-');
                         if (scoreParts.length === 2) {
