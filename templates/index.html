@@ -819,22 +819,18 @@
             wakeBtn.innerHTML = '⏳ API Uyandırılıyor...';
             wakeBtn.disabled = true;
 
-            showLoading('API uyandırılıyor...', 'Render sunucusu başlatılıyor (30-60 sn sürebilir)');
+            showLoading('API uyandırılıyor...', 'Render sunucusu başlatılıyor (30-90 sn sürebilir)');
 
             let attempts = 0;
-            const maxAttempts = 10;
+            const maxAttempts = 20; // 20 * 5 = 100 saniye
 
             try {
                 console.log('🔔 API uyandırma isteği gönderiliyor...');
-                const wakeResponse = await fetch(`${API_BASE_URL}/api/matches/upcoming?force_refresh=true`, {
+                await fetch(`${API_BASE_URL}/api/matches/upcoming?force_refresh=true`, {
                     method: 'GET',
                     mode: 'cors'
-                }).catch(e => {
-                    console.log('⚠️ İlk uyandırma isteği başarısız, normal...');
-                });
-            } catch (e) {
-                console.log('⚠️ Uyandırma isteği hata verdi, normal...');
-            }
+                }).catch(() => {});
+            } catch {}
 
             const checkInterval = setInterval(async () => {
                 attempts++;
@@ -845,13 +841,15 @@
                 );
 
                 try {
-                    const healthResponse = await fetchWithTimeout(`${API_BASE_URL}/health`, 10000);
+                    // TIMEOUT 10 saniyeden 60 saniyeye çıkarıldı
+                    const healthResponse = await fetchWithTimeout(`${API_BASE_URL}/health`, 60000);
 
                     if (healthResponse.ok) {
                         clearInterval(checkInterval);
                         apiStatus = 'online';
 
-                        document.getElementById('api-status').innerHTML = '🌐 API: <span style="color: var(--success)">Çalışıyor</span>';
+                        document.getElementById('api-status').innerHTML =
+                            '🌐 API: <span style="color: var(--success)">Çalışıyor</span>';
                         document.getElementById('api-status').classList.add('active');
                         document.getElementById('fetch-matches-btn').disabled = false;
 
@@ -882,18 +880,13 @@
 
                     showError(`
                         ❌ API uyandırılamadı!<br><br>
-                        <strong>Olası nedenler:</strong><br>
-                        • Render sunucusu çok yavaş başlıyor<br>
-                        • API tamamen kapalı olabilir<br>
-                        • İnternet bağlantı sorunu<br><br>
-                        <strong>Çözümler:</strong><br>
-                        • Birkaç dakika sonra tekrar deneyin<br>
-                        • Manuel maç ekle butonunu kullanın<br>
-                        • Render dashboard'dan API'yi kontrol edin
+                        Render sunucusu geç uyanıyor olabilir.<br>
+                        Lütfen 1 dakika sonra tekrar deneyin.
                     `);
                 }
             }, 5000);
         }
+
 
         // Manuel CSV Yükleme - GÜNCELLENDİ: Yeni sütun formatını destekler
         function manualLoadCSV() {
