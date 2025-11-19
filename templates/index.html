@@ -532,225 +532,238 @@
                             <option value="date-asc">Tarih (Erken → Geç)</option>
                         </select>
                     </div>
-                    <button class="premium-btn secondary" onclick="resetFilters()"
-                        style="padding: 8px 16px; margin-left: auto;">
-                        🔄 Sıfırla
-                    </button>
+                    <button class="premium-btn secondary" onclick="resetFilters()" <div class="premium-container"
+                        id="match-container">
+                        <div class="premium-loading">
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">Sistem Hazırlanıyor...</div>
+                        </div>
                 </div>
             </div>
-        </header>
-        <div class="premium-container" id="match-container">
-            <div class="premium-loading">
-                <div class="loading-spinner"></div>
-                <div class="loading-text">Hazırlanıyor...</div>
-            </div>
-        </div>
-    </div>
-    <script>
-        // LOCALHOST BACKEND URL
-        const API_BASE_URL = 'http://localhost:5000';
-        let allMatches = [];
-        let predictions = {};
-        let historicalData = null;
-        let teamStats = {};
-        let apiStatus = 'checking';
-        // API Durum Kontrolü
-        async function checkAPIStatus() {
-            try {
-                const apiStatusElement = document.getElementById('api-status');
-                // Backend'e basit bir istek at
-                const response = await fetch(`${API_BASE_URL}/api/matches`);
-                if (response.ok) {
-                    apiStatus = 'online';
-                    apiStatusElement.innerHTML = '🌐 Backend: <span style="color: var(--success)">Çalışıyor</span>';
-                    apiStatusElement.classList.add('active');
-                    document.getElementById('fetch-matches-btn').disabled = false;
-                } else {
-                    throw new Error('Backend error');
+            <script>
+                // API URL - Relative path kullanıyoruz (Render uyumlu)
+                // Bu sayede site nerede çalışırsa çalışsın (localhost veya Render) kendi backend'ine bağlanır.
+                const API_BASE_URL = '';
+                let allMatches = [];
+                let predictions = {};
+                let apiStatus = 'checking';
+                // API Durum Kontrolü
+                async function checkAPIStatus() {
+                    const apiStatusElement = document.getElementById('api-status');
+                    try {
+                        // Backend'e basit bir istek at
+                        const response = await fetch(`${API_BASE_URL}/api/matches`);
+                        if (response.ok) {
+                            apiStatus = 'online';
+                            apiStatusElement.innerHTML = '🌐 Backend: <span style="color: var(--success)">Çalışıyor</span>';
+                            apiStatusElement.classList.add('active');
+                            document.getElementById('fetch-matches-btn').disabled = false;
+                            // Otomatik olarak maçları çek
+                            fetchMatches();
+                        } else {
+                            throw new Error('Backend yanıt vermedi');
+                        }
+                    } catch (error) {
+                        apiStatus = 'offline';
+                        apiStatusElement.innerHTML = '🌐 Backend: <span style="color: var(--danger)">Kapalı</span>';
+                        document.getElementById('fetch-matches-btn').disabled = true;
+                        // Hata mesajını kullanıcıya göster
+                        showError('Backend bağlantısı kurulamadı. Lütfen sayfayı yenileyin. (Hata: ' + error.message + ')');
+                    }
                 }
-            } catch (error) {
-                apiStatus = 'offline';
-                document.getElementById('api-status').innerHTML = '🌐 Backend: <span style="color: var(--danger)">Kapalı</span>';
-                document.getElementById('fetch-matches-btn').disabled = true;
-                showError('Lütfen "python backend.py" komutu ile backend sunucusunu başlatın.');
-            }
-        }
-        // Maçları Çek (Backend'den)
-        async function fetchMatches() {
-            showLoading('Nesine.com verileri çekiliyor...');
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/matches`);
-                const data = await response.json();
-                if (data.success && Array.isArray(data.matches)) {
-                    allMatches = data.matches;
-                    updateMatchCount();
-                    displayMatches(allMatches);
-                    document.getElementById('predict-all-btn').disabled = false;
-                    showSuccess(`✅ ${allMatches.length} maç başarıyla çekildi!`);
-                } else {
-                    throw new Error('Veri formatı geçersiz');
+                // Maçları Çek (Backend'den)
+                async function fetchMatches() {
+                    showLoading('Nesine.com verileri çekiliyor...');
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/api/matches`);
+                        const data = await response.json();
+                        if (data.success && Array.isArray(data.matches)) {
+                            allMatches = data.matches;
+                            updateMatchCount();
+                            displayMatches(allMatches);
+                            document.getElementById('predict-all-btn').disabled = false;
+                            showSuccess(`✅ ${allMatches.length} maç başarıyla çekildi!`);
+                        } else {
+                            throw new Error('Veri formatı geçersiz');
+                        }
+                    } catch (error) {
+                        showError(`Veri çekilemedi: ${error.message}. Backend bağlantısını kontrol edin.`);
+                    }
                 }
-            } catch (error) {
-                showError(`Veri çekilemedi: ${error.message}. Backend'in çalıştığından emin olun.`);
-            }
-        }
-        // Oranları İşle (Backend formatına göre)
-        function extractOdds(match) {
-            const odds = match.odds || {};
-            // Backend'den gelen yapı: { "1": ..., "X": ..., "2": ..., "Over 2.5": ..., "Yes": ... }
-            // Frontend beklentisi: { "1": ..., "Over/Under +2.5": { "Over +2.5": ... }, ... }
-            return {
-                '1': odds['1'] || '-',
-                'X': odds['X'] || '-',
-                '2': odds['2'] || '-',
-                'Over/Under +2.5': {
-                    'Over +2.5': odds['Over 2.5'] || '-',
-                    'Under +2.5': odds['Under 2.5'] || '-'
-                },
-                'Both Teams To Score': {
-                    'Yes': odds['Yes'] || '-',
-                    'No': odds['No'] || '-'
+                // Oranları İşle (Backend formatına göre)
+                function extractOdds(match) {
+                    const odds = match.odds || {};
+                    // Backend'den gelen yapı: { "1": ..., "X": ..., "2": ..., "Over 2.5": ..., "Yes": ... }
+                    return {
+                        '1': odds['1'] || '-',
+                        'X': odds['X'] || '-',
+                        '2': odds['2'] || '-',
+                        'Over/Under +2.5': {
+                            'Over +2.5': odds['Over 2.5'] || '-',
+                            'Under +2.5': odds['Under 2.5'] || '-'
+                        },
+                        'Both Teams To Score': {
+                            'Yes': odds['Yes'] || '-',
+                            'No': odds['No'] || '-'
+                        }
+                    };
                 }
-            };
-        }
-        // --- DİĞER FONKSİYONLAR (ORİJİNAL KODDAN KORUNDU) ---
-        function displayMatches(matches) {
-            const container = document.getElementById('match-container');
-            if (matches.length === 0) {
-                container.innerHTML = `
-                    <div class="premium-alert warning">
-                        Henüz maç yüklenmedi. "Maçları Yükle" butonuna tıklayın.
-                    </div>
+                function displayMatches(matches) {
+                    const container = document.getElementById('match-container');
+                    if (matches.length === 0) {
+                        container.innerHTML = `
+                <div class="premium-alert warning">
+                    Henüz maç yüklenmedi. "Maçları Yükle" butonuna tıklayın.
+                </div>
                 `;
-                return;
-            }
-            container.innerHTML = '';
-            matches.forEach(match => {
-                const prediction = predictions[match.match_id];
-                const card = createMatchCard(match, prediction);
-                container.appendChild(card);
-            });
-        }
-        function createMatchCard(match, prediction) {
-            const card = document.createElement('div');
-            card.className = 'premium-match-card';
-            const odds = extractOdds(match);
-            // Tarih formatla
-            const dateObj = new Date(match.date);
-            const timeStr = dateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-            const dateStr = dateObj.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
-            card.innerHTML = `
-                <div class="match-header">
-                    <div class="team-info">
-                        <div class="match-teams">
-                            ${match.home_team}<span class="vs-separator">VS</span>${match.away_team}
-                        </div>
-                        <div class="match-meta">
-                            <span class="meta-badge">🏆 ${match.league_name || 'Lig'}</span>
-                            <span class="meta-badge">📅 ${dateStr} ${timeStr}</span>
-                        </div>
+                        return;
+                    }
+                    container.innerHTML = '';
+                    matches.forEach(match => {
+                        const prediction = predictions[match.match_id];
+                        const card = createMatchCard(match, prediction);
+                        container.appendChild(card);
+                    });
+                }
+                function createMatchCard(match, prediction) {
+                    const card = document.createElement('div');
+                    card.className = 'premium-match-card';
+                    const odds = extractOdds(match);
+                    // Tarih formatla
+                    let dateStr = '-', timeStr = '-';
+                    try {
+                        const dateObj = new Date(match.date);
+                        timeStr = dateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                        dateStr = dateObj.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+                    } catch (e) { }
+                    card.innerHTML = `
+            <div class="match-header">
+                <div class="team-info">
+                    <div class="match-teams">
+                        ${match.home_team}<span class="vs-separator">VS</span>${match.away_team}
                     </div>
-                    
-                    <div class="prediction-panel">
-                        <div class="prediction-header">📊 CANLI ORANLAR</div>
-                        
-                        <div class="odds-row">
-                            <div class="odds-label">Maç Sonucu:</div>
-                            <div class="odds-values">
-                                <div class="odd-item">${odds['1']}</div>
-                                <div class="odd-item">${odds['X']}</div>
-                                <div class="odd-item">${odds['2']}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="odds-row">
-                            <div class="odds-label">Alt/Üst 2.5:</div>
-                            <div class="odds-values">
-                                <div class="odd-item">Üst: ${odds['Over/Under +2.5']['Over +2.5']}</div>
-                                <div class="odd-item">Alt: ${odds['Over/Under +2.5']['Under +2.5']}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="odds-row">
-                            <div class="odds-label">KG Var/Yok:</div>
-                            <div class="odds-values">
-                                <div class="odd-item">Var: ${odds['Both Teams To Score']['Yes']}</div>
-                                <div class="odd-item">Yok: ${odds['Both Teams To Score']['No']}</div>
-                            </div>
-                        </div>
-                        
-                        ${prediction ? `
-                            <div class="confidence-meter">
-                                <span style="font-size: 10px; color: var(--text-muted);">Tahmin</span>
-                                <span class="confidence-value" style="color: var(--primary)">${prediction.prediction} (%${(prediction.confidence * 100).toFixed(0)})</span>
-                            </div>
-                        ` : ''}
+                    <div class="match-meta">
+                        <span class="meta-badge">🏆 ${match.league_name || 'Lig'}</span>
+                        <span class="meta-badge">📅 ${dateStr} ${timeStr}</span>
                     </div>
                 </div>
+                <div class="prediction-panel">
+                    <div class="prediction-header">📊 CANLI ORANLAR</div>
+                    <div class="odds-row">
+                        <div class="odds-label">Maç Sonucu:</div>
+                        <div class="odds-values">
+                            <div class="odd-item">${odds['1']}</div>
+                            <div class="odd-item">${odds['X']}</div>
+                            <div class="odd-item">${odds['2']}</div>
+                        </div>
+                    </div>
+                    <div class="odds-row">
+                        <div class="odds-label">Alt/Üst 2.5:</div>
+                        <div class="odds-values">
+                            <div class="odd-item">Üst: ${odds['Over/Under +2.5']['Over +2.5']}</div>
+                            <div class="odd-item">Alt: ${odds['Over/Under +2.5']['Under +2.5']}</div>
+                        </div>
+                    </div>
+                    <div class="odds-row">
+                        <div class="odds-label">KG Var/Yok:</div>
+                        <div class="odds-values">
+                            <div class="odd-item">Var: ${odds['Both Teams To Score']['Yes']}</div>
+                            <div class="odd-item">Yok: ${odds['Both Teams To Score']['No']}</div>
+                        </div>
+                    </div>
+                    ${prediction ? `
+                    <div class="confidence-meter">
+                        <span style="font-size: 10px; color: var(--text-muted);">Tahmin</span>
+                        <span class="confidence-value" style="color: var(--primary)">${prediction.prediction}
+                            (%${(prediction.confidence * 100).toFixed(0)})</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
             `;
-            return card;
-        }
-        // Basit Tahmin (CSV olmadan da çalışsın diye)
-        function smartPredict(match) {
-            const odds = extractOdds(match);
-            const o1 = parseFloat(odds['1']);
-            const o2 = parseFloat(odds['2']);
-            if (!o1 || !o2) return null;
-            let pred = '1';
-            let conf = 0.5;
-            if (o1 < o2) {
-                pred = '1';
-                conf = 1 / o1; // Basit olasılık
-            } else {
-                pred = '2';
-                conf = 1 / o2;
-            }
-            // Normalize et (basitçe)
-            conf = conf / ((1 / o1) + (1 / o2) + (1 / parseFloat(odds['X'] || 3.0)));
-            return {
-                prediction: pred,
-                confidence: conf
-            };
-        }
-        async function predictAllMatches() {
-            showLoading('Analiz yapılıyor...');
-            predictions = {};
-            allMatches.forEach(match => {
-                const p = smartPredict(match);
-                if (p) predictions[match.match_id] = p;
-            });
-            displayMatches(allMatches);
-            updatePredictionCount();
-            showSuccess('Analiz tamamlandı!');
-        }
-        // Yardımcılar
-        function showLoading(msg) {
-            document.getElementById('match-container').innerHTML = `<div class="premium-loading"><div class="loading-spinner"></div><div class="loading-text">${msg}</div></div>`;
-        }
-        function showError(msg) {
-            document.getElementById('match-container').innerHTML = `<div class="premium-alert" style="border-color: var(--danger); color: var(--danger)">❌ ${msg}</div>`;
-        }
-        function showSuccess(msg) {
-            const alert = document.createElement('div');
-            alert.className = 'premium-alert success';
-            alert.innerHTML = msg;
-            const c = document.getElementById('match-container');
-            c.insertBefore(alert, c.firstChild);
-            setTimeout(() => alert.remove(), 3000);
-        }
-        function updateMatchCount() { document.getElementById('match-count').textContent = allMatches.length; }
-        function updatePredictionCount() { document.getElementById('prediction-count').textContent = Object.keys(predictions).length; }
-        function clearAll() { allMatches = []; predictions = {}; displayMatches([]); updateMatchCount(); updatePredictionCount(); }
-        // Başlangıç
-        window.addEventListener('DOMContentLoaded', () => {
-            checkAPIStatus();
-            // CSV yükleme kısımlarını şimdilik pas geçiyoruz veya kullanıcı manuel yükleyebilir
-            document.getElementById('csv-status').innerHTML = '📂 CSV: Manuel Yükleyin';
-        });
-        // CSV Fonksiyonları (Placeholder - Orijinal koddan alınabilir)
-        function manualLoadCSV() { alert('Bu özellik şu an aktif değil, backend odaklı çalışıyoruz.'); }
-        function applyFilters() { alert('Filtreler yakında aktif olacak.'); }
-        function resetFilters() { }
-    </script>
+                    return card;
+                }
+                // Basit Tahmin
+                function smartPredict(match) {
+                    const odds = extractOdds(match);
+                    const o1 = parseFloat(odds['1']);
+                    const o2 = parseFloat(odds['2']);
+                    if (!o1 || !o2) return null;
+                    let pred = '1';
+                    let conf = 0.5;
+                    if (o1 < o2) {
+                        pred = '1';
+                        conf = 1 / o1;
+                    } else {
+                        pred = '2';
+                        conf = 1 / o2;
+                    }
+                    // Basit normalizasyon
+                    conf = conf / ((1 / o1) + (1 / o2) + (1 / parseFloat(odds['X'] || 3.0)));
+                    return { prediction: pred, confidence: conf };
+                }
+                async function predictAllMatches() {
+                    showLoading('Analiz yapılıyor...');
+                    predictions = {};
+                    allMatches.forEach(match => {
+                        const p = smartPredict(match);
+                        if (p) predictions[match.match_id] = p;
+                    });
+                    displayMatches(allMatches);
+                    updatePredictionCount();
+                    showSuccess('Analiz tamamlandı!');
+                }
+                // Yardımcılar
+                function showLoading(msg) {
+                    const container = document.getElementById('match-container');
+                    if (container) {
+                        container.innerHTML = `<div class="premium-loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">${msg}</div>
+                </div>`;
+                    }
+                }
+                function showError(msg) {
+                    const container = document.getElementById('match-container');
+                    if (container) {
+                        container.innerHTML = `<div class="premium-alert" style="border-color: var(--danger); color: var(--danger)">❌ ${msg}</div>`;
+                    }
+                }
+                function showSuccess(msg) {
+                    const alert = document.createElement('div');
+                    alert.className = 'premium-alert success';
+                    alert.innerHTML = msg;
+                    const c = document.getElementById('match-container');
+                    if (c) {
+                        c.insertBefore(alert, c.firstChild);
+                        setTimeout(() => alert.remove(), 3000);
+                    }
+                }
+                function updateMatchCount() {
+                    const el = document.getElementById('match-count');
+                    if (el) el.textContent = allMatches.length;
+                }
+                function updatePredictionCount() {
+                    const el = document.getElementById('prediction-count');
+                    if (el) el.textContent = Object.keys(predictions).length;
+                }
+                function clearAll() {
+                    allMatches = [];
+                    predictions = {};
+                    displayMatches([]);
+                    updateMatchCount();
+                    updatePredictionCount();
+                }
+                // Başlangıç
+                window.addEventListener('DOMContentLoaded', () => {
+                    checkAPIStatus();
+                    const csvStatus = document.getElementById('csv-status');
+                    if (csvStatus) csvStatus.innerHTML = '📂 CSV: Manuel Yükleyin';
+                });
+                // Placeholder Fonksiyonlar
+                function manualLoadCSV() { alert('Bu özellik şu an aktif değil, backend odaklı çalışıyoruz.'); }
+                function applyFilters() { alert('Filtreler yakında aktif olacak.'); }
+                function resetFilters() { }
+            </script>
 </body>
 </html>
