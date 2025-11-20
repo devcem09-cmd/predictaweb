@@ -1,374 +1,168 @@
-from flask import Flask, jsonify, request, send_file
+import pandas as pd
+import numpy as np
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
 import logging
 from datetime import datetime
-import os
+from io import StringIO
 import time
-from functools import wraps
 
+# --- AYARLAR ---
 app = Flask(__name__)
-CORS(app)
+CORS(app) # Senin HTML dosyanın bağlanabilmesi için izinler
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("PredictaBrain")
 
-# Nesine headers
+# Nesine Headerları (Tokenlar değişirse güncellemen gerekir)
 NESINE_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     "Authorization": "Basic RDQ3MDc4RDMtNjcwQi00OUJBLTgxNUYtM0IyMjI2MTM1MTZCOkI4MzJCQjZGLTQwMjgtNDIwNS05NjFELTg1N0QxRTZEOTk0OA==",
-    "Referer": "https://www.nesine.com/",
-    "Origin": "https://www.nesine.com",
-    "Accept": "application/json",
+    "Origin": "https://www.nesine.com"
 }
-
 NESINE_URL = "https://cdnbulten.nesine.com/api/bulten/getprebultenfull"
+CSV_URL = "https://raw.githubusercontent.com/devcem09-cmd/predicta-api/main/data/merged_all.csv" # Senin veri setin
 
-# Cache için global değişken
-cached_matches = []
-cache_timestamp = None
-CACHE_DURATION = 300  # 5 dakika
+# --- GLOBAL VERİ HAFIZASI ---
+# Her istekte CSV indirmemek için RAM'de tutacağız
+historical_data = None
+team_stats = {}
 
-# Rate limiting için basit tracker
-request_tracker = {}
-
-def rate_limit(max_requests=30, window=60):
-    """Rate limiting decorator - dakikada 30 istek"""
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            client_ip = request.remote_addr
-            now = time.time()
-            
-            if client_ip not in request_tracker:
-                request_tracker[client_ip] = []
-            
-            # Eski istekleri temizle
-            request_tracker[client_ip] = [
-                req_time for req_time in request_tracker[client_ip]
-                if now - req_time < window
-            ]
-            
-            if len(request_tracker[client_ip]) >= max_requests:
-                logger.warning(f"⚠️ Rate limit aşıldı: {client_ip}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Çok fazla istek. Lütfen biraz bekleyin.',
-                    'retry_after': window
-                }), 429
-            
-            request_tracker[client_ip].append(now)
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
-
-def fetch_nesine_matches(force_refresh=False):
-    """Nesine'den maçları çek ve API formatına dönüştür"""
-    global cached_matches, cache_timestamp
-    
-    # Cache kontrolü
-    if not force_refresh and cached_matches and cache_timestamp:
-        age = (datetime.now() - cache_timestamp).total_seconds()
-        if age < CACHE_DURATION:
-            logger.info(f"📦 Cache kullanılıyor (yaş: {age:.0f}s)")
-            return {
-                'matches': cached_matches,
-                'from_cache': True,
-                'cache_age': age
-            }
-    
+def load_historical_data():
+    """CSV dosyasını sunucu hafızasına yükler ve analiz eder."""
+    global historical_data, team_stats
     try:
-        logger.info("🔄 Nesine API'den veriler çekiliyor...")
-        start_time = time.time()
-        
-        response = requests.get(
-            NESINE_URL, 
-            headers=NESINE_HEADERS, 
-            timeout=15,
-            verify=True
-        )
-        response.raise_for_status()
-        
-        fetch_time = time.time() - start_time
-        logger.info(f"⚡ Nesine yanıt süresi: {fetch_time:.2f}s")
-        
-        data = response.json()
-        
+        logger.info("📥 Geçmiş veriler GitHub'dan çekiliyor...")
+        response = requests.get(CSV_URL)
+        if response.status_code == 200:
+            # CSV'yi Pandas ile oku (JavaScript'ten 100 kat hızlıdır)
+            csv_data = StringIO(response.text)
+            df = pd.read_csv(csv_data)
+            
+            # Basit bir istatistik tablosu oluştur
+            # Not: Gerçek bir projede burası SQL veritabanı olmalı!
+            stats = {}
+            
+            for index, row in df.iterrows():
+                home = str(row.get('home_team', '')).strip()
+                away = str(row.get('away_team', '')).strip()
+                
+                if home not in stats: stats[home] = {'matches': [], 'goals_for': 0, 'goals_against': 0}
+                if away not in stats: stats[away] = {'matches': [], 'goals_for': 0, 'goals_against': 0}
+                
+                # Basit istatistikleri ekle
+                try:
+                    h_score = int(row.get('home_score', 0))
+                    a_score = int(row.get('away_score', 0))
+                    
+                    stats[home]['matches'].append('W' if h_score > a_score else ('D' if h_score == a_score else 'L'))
+                    stats[away]['matches'].append('W' if a_score > h_score else ('D' if a_score == h_score else 'L'))
+                    
+                    stats[home]['goals_for'] += h_score
+                    stats[away]['goals_for'] += a_score
+                except:
+                    continue
+            
+            team_stats = stats
+            logger.info(f"✅ Veri yüklendi. {len(team_stats)} takım analiz edildi.")
+        else:
+            logger.error("❌ CSV indirilemedi!")
+    except Exception as e:
+        logger.error(f"❌ Veri yükleme hatası: {e}")
+
+# İlk açılışta veriyi yükle
+load_historical_data()
+
+def get_team_form(team_name):
+    """Takımın son 5 maçlık formunu döndürür."""
+    if team_name in team_stats:
+        form = team_stats[team_name]['matches'][-5:] # Son 5 maç
+        return "".join(form)
+    return None
+
+# --- NESİNE ENTEGRASYONU ---
+
+def fetch_nesine_live():
+    try:
+        resp = requests.get(NESINE_URL, headers=NESINE_HEADERS, timeout=10)
+        data = resp.json()
         matches = []
-        stats = {
-            "total_processed": 0,
-            "with_ms": 0,
-            "with_ou": 0,
-            "with_btts": 0,
-            "complete_odds": 0,
-            "skipped": 0
-        }
         
-        # Sporları kontrol et
-        sports_data = data.get("sg", {})
-        if not sports_data:
-            logger.warning("⚠️ Nesine'den spor verisi gelmedi")
-            return {
-                'matches': cached_matches if cached_matches else [],
-                'from_cache': bool(cached_matches),
-                'cache_age': None
-            }
-        
-        # Futbol maçlarını işle (EA = European Soccer)
-        football_matches = sports_data.get("EA", [])
-        logger.info(f"🔍 {len(football_matches)} futbol maçı bulundu")
-        
-        for m in football_matches:
-            # Sadece futbol (GT = Game Type)
-            if m.get("GT") != 1:
-                stats["skipped"] += 1
-                continue
+        # Futbol maçlarını al (EA kodu)
+        if "sg" in data and "EA" in data["sg"]:
+            raw_matches = data["sg"]["EA"]
             
-            stats["total_processed"] += 1
-            
-            match_info = {
-                "match_id": str(m.get("C", "")),
-                "home_team": m.get("HN", ""),
-                "away_team": m.get("AN", ""),
-                "league_code": m.get("LC", ""),
-                "league_name": m.get("LN", str(m.get("LID", ""))),
-                "date": f"{m.get('D', '')}T{m.get('T', '')}:00",
-                "is_live": m.get("L", False),
-                "odds": {}
-            }
-            
-            has_ms = False
-            has_ou = False
-            has_btts = False
-            
-            # Debug için tüm pazar tiplerini topla (sadece ilk maç)
-            debug_markets = []
-            
-            # Oranları işle (MA = Market Array)
-            for bahis in m.get("MA", []):
-                bahis_tipi = bahis.get("MTID")  # Market Type ID
-                oranlar = bahis.get("OCA", [])  # Odds Choice Array
+            for m in raw_matches:
+                if m.get("GT") != 1: continue # Sadece bülten
                 
-                # Debug: İlk maç için tüm pazar tiplerini logla
-                if stats["total_processed"] == 1:
-                    debug_markets.append({
-                        "MTID": bahis_tipi,
-                        "market_name": bahis.get("MN", "Unknown"),
-                        "odds_count": len(oranlar),
-                        "odds": [{"N": o.get("N"), "O": o.get("O")} for o in oranlar[:5]]
-                    })
-                
-                # Maç Sonucu (1, X, 2) - MTID: 1 (N değerine göre ayır)
-                if bahis_tipi == 1 and len(oranlar) >= 3:
-                    try:
-                        home_odd = None
-                        draw_odd = None
-                        away_odd = None
-                        
-                        # N değerine göre oranları ayır
-                        for oran in oranlar:
-                            n_value = oran.get("N")
-                            oran_degeri = float(oran.get("O", 0))
-                            
-                            if n_value == 1:  # N=1 → Ev Sahibi (1)
-                                home_odd = oran_degeri
-                            elif n_value == 2:  # N=2 → Beraberlik (X)
-                                draw_odd = oran_degeri
-                            elif n_value == 3:  # N=3 → Deplasman (2)
-                                away_odd = oran_degeri
-                        
-                        # Eğer bulunamadıysa varsayılan
-                        match_info["odds"]["1"] = home_odd or 2.0
-                        match_info["odds"]["X"] = draw_odd or 3.2
-                        match_info["odds"]["2"] = away_odd or 3.5
-                        has_ms = True
-                    except (ValueError, TypeError, KeyError):
-                        pass
-                
-                # Alt/Üst 2.5 - MTID: 450 (N değerine göre ayır)
-                elif bahis_tipi == 450 and len(oranlar) >= 2:
-                    try:
-                        over_odd = None
-                        under_odd = None
-                        
-                        # N değerine göre oranları ayır
-                        for oran in oranlar:
-                            n_value = oran.get("N")
-                            oran_degeri = float(oran.get("O", 0))
-                            
-                            if n_value == 1:  # N=1 → Üst 2.5
-                                over_odd = oran_degeri
-                            elif n_value == 2:  # N=2 → Alt 2.5
-                                under_odd = oran_degeri
-                        
-                        # Eğer bulunamadıysa varsayılan
-                        if over_odd is None or under_odd is None:
-                            logger.warning(f"⚠️ Alt/Üst oranları eksik! Over={over_odd}, Under={under_odd}")
-                            over_odd = over_odd or 1.9
-                            under_odd = under_odd or 1.9
-                        
-                        # Mantık kontrolü (güvenlik için)
-                        if over_odd > 10.0 and under_odd < 3.0:
-                            logger.warning(f"⚠️ Şüpheli oranlar! Over={over_odd}, Under={under_odd}")
-                        
-                        match_info["odds"]["Over/Under +2.5"] = {
-                            "Over +2.5": over_odd,
-                            "Under +2.5": under_odd
+                # Oranları ayrıştır
+                odds = {}
+                for market in m.get("MA", []):
+                    # Maç Sonucu (1, X, 2)
+                    if market.get("MTID") == 1:
+                        for o in market.get("OCA", []):
+                            if o.get("N") == 1: odds["1"] = o.get("O")
+                            if o.get("N") == 2: odds["X"] = o.get("O")
+                            if o.get("N") == 3: odds["2"] = o.get("O")
+                    
+                    # Alt/Üst 2.5
+                    if market.get("MTID") == 450:
+                        odds["Over/Under +2.5"] = {}
+                        for o in market.get("OCA", []):
+                            if o.get("N") == 1: odds["Over/Under +2.5"]["Over +2.5"] = o.get("O")
+                            if o.get("N") == 2: odds["Over/Under +2.5"]["Under +2.5"] = o.get("O")
+
+                    # KG Var/Yok
+                    if market.get("MTID") == 38:
+                         odds["Both Teams To Score"] = {}
+                         for o in market.get("OCA", []):
+                            if o.get("N") == 1: odds["Both Teams To Score"]["Yes"] = o.get("O")
+                            if o.get("N") == 2: odds["Both Teams To Score"]["No"] = o.get("O")
+
+                # Sadece oranları tam olanları al
+                if "1" in odds:
+                    match_info = {
+                        "match_id": str(m.get("C")),
+                        "home_team": m.get("HN"),
+                        "away_team": m.get("AN"),
+                        "date": f"{m.get('D')}T{m.get('T')}:00",
+                        "league_code": m.get("LC"),
+                        "league_name": m.get("LN"),
+                        "odds": odds,
+                        # Backend tarafında hesaplanmış form bilgisini ekle
+                        "stats": {
+                            "home_form": get_team_form(m.get("HN")),
+                            "away_form": get_team_form(m.get("AN"))
                         }
-                        has_ou = True
-                        
-                        # Debug log - İlk 3 maç için
-                        if stats["total_processed"] <= 3:
-                            logger.info(f"🎯 {match_info['home_team']} vs {match_info['away_team']}")
-                            logger.info(f"   MTID {bahis_tipi}: Over={over_odd} (N=1), Under={under_odd} (N=2)")
-                            
-                    except (ValueError, TypeError, KeyError) as e:
-                        logger.warning(f"⚠️ Alt/Üst oran hatası: {e}")
-                
-                # Karşılıklı Gol (BTTS) - MTID: 38 (N değerine göre ayır)
-                elif bahis_tipi == 38 and len(oranlar) >= 2:
-                    try:
-                        yes_odd = None
-                        no_odd = None
-                        
-                        # N değerine göre oranları ayır
-                        for oran in oranlar:
-                            n_value = oran.get("N")
-                            oran_degeri = float(oran.get("O", 0))
-                            
-                            if n_value == 1:  # N=1 → Var (Yes)
-                                yes_odd = oran_degeri
-                            elif n_value == 2:  # N=2 → Yok (No)
-                                no_odd = oran_degeri
-                        
-                        # Eğer bulunamadıysa varsayılan
-                        if yes_odd is None or no_odd is None:
-                            yes_odd = yes_odd or 1.85
-                            no_odd = no_odd or 1.95
-                        
-                        match_info["odds"]["Both Teams To Score"] = {
-                            "Yes": yes_odd,
-                            "No": no_odd
-                        }
-                        has_btts = True
-                    except (ValueError, TypeError, KeyError):
-                        pass
-            
-            # İlk maç için debug bilgisini logla
-            if stats["total_processed"] == 1 and debug_markets:
-                logger.info(f"📊 İlk maç için bulunan pazar tipleri: {match_info['home_team']} vs {match_info['away_team']}")
-                for dm in debug_markets:
-                    logger.info(f"  MTID {dm['MTID']}: {dm['market_name']} ({dm['odds_count']} oran)")
-                    if dm['MTID'] in [1, 38, 450]:  # Sadece ilgili pazarları detaylandır
-                        for odd in dm['odds']:
-                            logger.info(f"    - N={odd['N']}: {odd['O']}")
-            
-            # Sadece en az Maç Sonucu oranı olan maçları ekle
-            if has_ms:
-                stats["with_ms"] += 1
-                if has_ou:
-                    stats["with_ou"] += 1
-                if has_btts:
-                    stats["with_btts"] += 1
-                if has_ms and has_ou and has_btts:
-                    stats["complete_odds"] += 1
-                
-                matches.append(match_info)
-        
-        # Cache'i güncelle
-        cached_matches = matches
-        cache_timestamp = datetime.now()
-        
-        process_time = time.time() - start_time
-        logger.info(f"✅ Nesine'den {len(matches)} maç çekildi ({process_time:.2f}s)")
-        logger.info(f"📊 İstatistikler: MS={stats['with_ms']}, OU={stats['with_ou']}, BTTS={stats['with_btts']}, TAM={stats['complete_odds']}")
-        
-        return {
-            'matches': matches,
-            'from_cache': False,
-            'cache_age': 0,
-            'stats': stats,
-            'fetch_time': fetch_time,
-            'process_time': process_time
-        }
-        
-    except requests.Timeout:
-        logger.error("⏱️ Nesine API timeout!")
-        return {
-            'matches': cached_matches if cached_matches else [],
-            'from_cache': bool(cached_matches),
-            'cache_age': None,
-            'error': 'timeout'
-        }
-    except requests.RequestException as e:
-        logger.error(f"❌ Nesine API bağlantı hatası: {str(e)}")
-        return {
-            'matches': cached_matches if cached_matches else [],
-            'from_cache': bool(cached_matches),
-            'cache_age': None,
-            'error': str(e)
-        }
+                    }
+                    matches.append(match_info)
+                    
+        return matches
     except Exception as e:
-        logger.error(f"❌ Beklenmeyen hata: {str(e)}", exc_info=True)
-        return {
-            'matches': cached_matches if cached_matches else [],
-            'from_cache': bool(cached_matches),
-            'cache_age': None,
-            'error': str(e)
-        }
+        logger.error(f"Nesine API hatası: {e}")
+        return []
 
-# --- ROUTES ---
-
-@app.route('/')
-def index():
-    """Ana sayfayı (HTML) doğrudan dosya olarak sunar."""
-    try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        template_path = os.path.join(current_dir, 'templates', 'index.html')
-        
-        if not os.path.exists(template_path):
-            return jsonify({
-                "error": "index.html bulunamadı",
-                "path": template_path
-            }), 404
-            
-        return send_file(template_path)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/api/matches', methods=['GET'])
-@app.route('/api/matches/upcoming', methods=['GET'])
-@rate_limit(max_requests=30, window=60)
-def get_matches():
-    """Maç verilerini JSON olarak döndürür (Frontend uyumlu)"""
-    try:
-        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
-        
-        result = fetch_nesine_matches(force_refresh=force_refresh)
-        matches = result['matches']
-        
-        return jsonify({
-            "success": True,
-            "count": len(matches),
-            "matches": matches,
-            "stats": result.get('stats', {}),
-            "timestamp": datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        logger.error(f"❌ API hatası: {str(e)}", exc_info=True)
-        return jsonify({
-            "success": False,
-            "error": str(e),
-            "matches": [],
-            "count": 0
-        }), 500
+# --- API ENDPOINTS ---
 
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "online", "timestamp": datetime.now().isoformat()})
 
+@app.route('/api/matches/upcoming', methods=['GET'])
+def get_matches():
+    """Frontend'in beklediği JSON formatında maçları döndürür."""
+    matches = fetch_nesine_live()
+    
+    return jsonify({
+        "success": True,
+        "count": len(matches),
+        "matches": matches,
+        "timestamp": datetime.now().isoformat()
+    })
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    logger.info(f"🚀 PredictaAI API başlatılıyor (Port: {port})...")
-    app.run(debug=False, host='0.0.0.0', port=port)
+    # Render.com genelde PORT environment variable'ını kullanır
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
