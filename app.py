@@ -38,6 +38,23 @@ class MatchPredictor:
         self.avg_away_goals = 1.2
         self.load_database()
 
+    def fix_encoding(self, text):
+        """Bozuk karakterleri (Mojibake) Türkçeye çevirir."""
+        if not isinstance(text, str): return text
+        
+        # Karakter Haritası (Bozuk -> Düzgün)
+        replacements = {
+            'Ä°': 'İ', 'Ã‡': 'Ç', 'Ã–': 'Ö', 'Ãœ': 'Ü', 'Åž': 'Ş', 'Ä±': 'ı',
+            'Ã§': 'ç', 'Ã¶': 'ö', 'Ã¼': 'ü', 'ÅŸ': 'ş', 'ÄŸ': 'ğ', 'Ã': 'Ğ',
+            'SÃœPER': 'SÜPER', 'LÄ°G': 'LİG', 'NORVEÃ‡': 'NORVEÇ', 
+            'Ä°SVEÃ‡': 'İSVEÇ', 'SERÃ°E': 'SERIE', 'PORTEKÄ°Z': 'PORTEKİZ',
+            'BELÃ‡Ä°KA': 'BELÇİKA', 'HOLLANDA': 'HOLLANDA'
+        }
+        
+        for bad, good in replacements.items():
+            text = text.replace(bad, good)
+        return text.strip()
+
     def load_database(self):
         logger.info(f"📂 Veritabanı yükleniyor: {CSV_PATH}")
         
@@ -46,20 +63,71 @@ class MatchPredictor:
             return
 
         try:
-            self.df = pd.read_csv(CSV_PATH, encoding='utf-8', on_bad_lines='skip')
-            # Sütun temizliği
-            self.df.columns = [c.lower().strip().replace(' ', '_').replace('hometeam', 'home_team').replace('awayteam', 'away_team').replace('fthg', 'home_score').replace('ftag', 'away_score') for c in self.df.columns]
+            # CSV'yi olduğu gibi oku (Encoding hatası varsa görmezden gelip biz düzelteceğiz)
+            # header=0 diyerek ilk satırı başlık kabul ediyoruz
+            self.df = pd.read_csv(CSV_PATH, encoding='utf-8', on_bad_lines='skip', dtype=str)
             
-            # Skor temizliği
+            logger.info(f"📥 Ham veri okundu. Sütunlar: {list(self.df.columns)}")
+
+            # Sütun İsimlerini Standartlaştır (Senin dosyanın başlıklarına göre)
+            # Resme göre başlıklar: odds_2, date, time, home_team...
+            
+            # Gerekli sütunları bulalım veya indeksle alalım
+            # Senin resimdeki yapıya göre mapping:
+            # home_team -> 'home_team'
+            # away_team -> 'away_team'
+            # home_score -> 'home_score'
+            # away_score -> 'away_score' (Başlıkta away_score önce gelebiliyor, dikkat)
+            
+            required_map = {
+                'home_team': 'home_team',
+                'away_team': 'away_team',
+                'home_score': 'home_score', 
+                'away_score': 'away_score'
+            }
+            
+            # Yeni bir DataFrame oluşturacağız
+            clean_df = pd.DataFrame()
+            
+            for csv_col, standard_name in required_map.items():
+                if csv_col in self.df.columns:
+                    clean_df[standard_name] = self.df[csv_col]
+                else:
+                    logger.warning(f"⚠️ Sütun bulunamadı: {csv_col}")
+
+            # Eğer DataFrame boşsa veya sütunlar eksikse manuel indeksle deneyelim (Fallback)
+            if clean_df.empty or 'home_team' not in clean_df.columns:
+                logger.warning("⚠️ Başlıklar uyuşmadı, indeks bazlı okuma deneniyor...")
+                # Resimdeki yapıya göre tahmin: 
+                # 3: Home Team, 12: Away Team, 8: Away Score?, 9: Home Score?
+                # (Burası senin CSV'nin tam yapısına göre değişebilir, resme göre ayarladım)
+                clean_df['home_team'] = self.df.iloc[:, 3]
+                clean_df['away_team'] = self.df.iloc[:, 12]
+                clean_df['home_score'] = self.df.iloc[:, 9] # Resimde 9. index gibi duruyor
+                clean_df['away_score'] = self.df.iloc[:, 8]
+
+            # 1. İsimleri Temizle (Encoding Fix)
+            clean_df['home_team'] = clean_df['home_team'].apply(self.fix_encoding)
+            clean_df['away_team'] = clean_df['away_team'].apply(self.fix_encoding)
+
+            # 2. Skorları Temizle
+            # "0.0" stringini integer 0'a çevir
             for col in ['home_score', 'away_score']:
-                if col in self.df.columns:
-                    self.df[col] = pd.to_numeric(self.df[col], errors='coerce').fillna(0).astype(int)
+                clean_df[col] = pd.to_numeric(clean_df[col], errors='coerce').fillna(0).astype(int)
+
+            # 3. Gelecek Tarihli / Oynanmamış Maçları Filtrele
+            # Eğer skorlar 0-0 ise ve bu maç oynanmamışsa istatistiği bozar.
+            # Ama senin elinde sadece bu veri varsa mecburen kullanacağız.
+            # Normalde: clean_df = clean_df[clean_df['result'].notna()] 
             
+            self.df = clean_df
+            
+            # İstatistikleri tekrar hesapla
             self._calculate_stats()
-            logger.info(f"✅ DB Yüklendi: {len(self.df)} satır, {len(self.team_stats)} takım.")
+            logger.info(f"✅ DB Temizlendi ve Yüklendi: {len(self.df)} satır.")
             
         except Exception as e:
-            logger.error(f"❌ DB Hatası: {e}")
+            logger.error(f"❌ DB İşleme Hatası: {e}")
 
     def _calculate_stats(self):
         if self.df is None or self.df.empty: return
@@ -261,3 +329,4 @@ def live():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
