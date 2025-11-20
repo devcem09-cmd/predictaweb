@@ -820,14 +820,21 @@
                     </div>
                 </div>
                 
-                <!-- Nesine Oranları -->
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                    <div class="odd-item">MS 1: <span style="color:var(--text);">${match.odds['1'] || '-'}</span></div>
-                    <div class="odd-item">MS X: <span style="color:var(--text);">${match.odds['X'] || '-'}</span></div>
-                    <div class="odd-item">MS 2: <span style="color:var(--text);">${match.odds['2'] || '-'}</span></div>
-    
+                <!-- Nesine Oranları (KG VAR EKLENDİ) -->
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                    <!-- Maç Sonucu -->
+                    <div class="odd-item">MS 1: <span style="color:var(--text); font-weight:bold;">${match.odds['1'] || '-'}</span></div>
+                    <div class="odd-item">MS X: <span style="color:var(--text); font-weight:bold;">${match.odds['X'] || '-'}</span></div>
+                    <div class="odd-item">MS 2: <span style="color:var(--text); font-weight:bold;">${match.odds['2'] || '-'}</span></div>
+
+                    <!-- 2.5 Üst -->
                     ${(match.odds['Over/Under +2.5'] && match.odds['Over/Under +2.5']['Over +2.5']) ? 
-        `                <div class="odd-item" style="border-color: var(--primary);">2.5 Üst: <span style="color:var(--primary); font-weight:bold;">${match.odds['Over/Under +2.5']['Over +2.5']}</span></div>` 
+                        `<div class="odd-item" style="border-color: var(--primary);">2.5 Üst: <span style="color:var(--primary); font-weight:bold;">${match.odds['Over/Under +2.5']['Over +2.5']}</span></div>` 
+                        : ''}
+
+                    <!-- KG Var (YENİ EKLENEN KISIM) -->
+                    ${(match.odds['Both Teams To Score'] && match.odds['Both Teams To Score']['Yes']) ? 
+                        `<div class="odd-item" style="border-color: var(--secondary);">KG Var: <span style="color:var(--secondary); font-weight:bold;">${match.odds['Both Teams To Score']['Yes']}</span></div>` 
                         : ''}
                 </div>
             `;
