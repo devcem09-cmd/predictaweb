@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Predicta PRO | Live Socket</title>
+    <title>Predicta PRO | Live Data</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- Socket.IO Client -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -46,21 +44,11 @@
             font-weight: 800;
             text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
         }
-        /* Sarı kutunun içindeki alt metinleri de siyah yap */
-        .prediction-box span {
-            color: #000000 !important;
-            opacity: 1 !important;
-        }
-        /* Sarı kutunun içindeki başlıkları (MS 1 vb.) biraz daha koyu yap */
-        .prediction-box .odd-label {
-            color: #422006 !important; /* Koyu kahve/siyah */
-            font-weight: 700;
-        }
     </style>
 </head>
 <body class="min-h-screen pb-20 selection:bg-yellow-500 selection:text-black">
 
-    <div x-data="appData()" x-init="initSocket()" class="container mx-auto px-2 max-w-5xl pt-2">
+    <div x-data="appData()" x-init="initApp()" class="container mx-auto px-2 max-w-5xl pt-2">
 
         <!-- HEADER -->
         <header class="py-4 flex justify-between items-center border-b border-slate-800 mb-4 sticky top-0 z-50 bg-[#0b1121]/95 backdrop-blur-md">
@@ -71,7 +59,7 @@
                       <span class="absolute inline-flex h-full w-full rounded-full opacity-75" :class="connected ? 'bg-green-400 animate-ping' : 'bg-red-400'"></span>
                       <span class="relative inline-flex rounded-full h-2 w-2" :class="connected ? 'bg-green-500' : 'bg-red-500'"></span>
                     </span>
-                    <p class="text-[10px] font-mono" :class="connected ? 'text-green-400' : 'text-red-400'" x-text="connected ? 'SOCKET BAĞLI' : 'BAĞLANTI KOPTU'"></p>
+                    <p class="text-[10px] font-mono" :class="connected ? 'text-green-400' : 'text-red-400'" x-text="connected ? 'API BAĞLI' : 'BAĞLANTI KOPTU'"></p>
                 </div>
             </div>
 
@@ -90,9 +78,9 @@
         <div class="space-y-3 mb-6">
             <div class="flex flex-col md:flex-row gap-3 justify-between">
                 <div class="flex gap-2 overflow-x-auto hide-scroll pb-1">
-                    <button @click="filter.sort = 'default'" :class="filter.sort === 'default' ? 'btn-active-yellow font-bold' : 'border border-slate-700 text-slate-400'" class="px-4 py-2 rounded-lg text-xs whitespace-nowrap flex items-center gap-2"><i class="fa-solid fa-sort"></i> Varsayılan</button>
-                    <button @click="filter.sort = 'prob_high'" :class="filter.sort === 'prob_high' ? 'bg-blue-600 text-white border-blue-500' : 'border border-slate-700 text-slate-400'" class="px-4 py-2 rounded-lg text-xs whitespace-nowrap flex items-center gap-2"><i class="fa-solid fa-star"></i> Yüksek Güven</button>
-                    <button @click="filter.sort = 'prob_over'" :class="filter.sort === 'prob_over' ? 'bg-green-600 text-white border-green-500' : 'border border-slate-700 text-slate-400'" class="px-4 py-2 rounded-lg text-xs whitespace-nowrap flex items-center gap-2"><i class="fa-solid fa-futbol"></i> Gol Beklentisi</button>
+                    <button @click="setSort('default')" :class="filter.sort === 'default' ? 'btn-active-yellow font-bold' : 'border border-slate-700 text-slate-400'" class="px-4 py-2 rounded-lg text-xs whitespace-nowrap flex items-center gap-2"><i class="fa-solid fa-sort"></i> Varsayılan</button>
+                    <button @click="setSort('prob_high')" :class="filter.sort === 'prob_high' ? 'bg-blue-600 text-white border-blue-500' : 'border border-slate-700 text-slate-400'" class="px-4 py-2 rounded-lg text-xs whitespace-nowrap flex items-center gap-2"><i class="fa-solid fa-star"></i> Yüksek Güven</button>
+                    <button @click="setSort('prob_over')" :class="filter.sort === 'prob_over' ? 'bg-green-600 text-white border-green-500' : 'border border-slate-700 text-slate-400'" class="px-4 py-2 rounded-lg text-xs whitespace-nowrap flex items-center gap-2"><i class="fa-solid fa-futbol"></i> Gol Beklentisi</button>
                 </div>
                 <div class="flex gap-2 overflow-x-auto hide-scroll pb-1">
                     <button @click="filter.date = 'all'" :class="filter.date === 'all' ? 'bg-slate-700 text-white border-slate-500' : 'card-bg text-slate-500 border-slate-800'" class="px-3 py-1 rounded-lg text-xs border flex flex-col items-center min-w-[50px]"><span class="text-[9px] opacity-70">Tümü</span><i class="fa-solid fa-calendar-days mt-0.5"></i></button>
@@ -114,7 +102,7 @@
             <template x-if="loading">
                 <div class="flex flex-col items-center justify-center py-12">
                     <i class="fa-solid fa-satellite-dish fa-spin text-3xl text-yellow-500 mb-3"></i>
-                    <p class="text-slate-500 text-sm animate-pulse">Uydu bağlantısı kuruluyor...</p>
+                    <p class="text-slate-500 text-sm animate-pulse">Veriler yükleniyor...</p>
                 </div>
             </template>
 
@@ -232,7 +220,7 @@
                 </div>
             </template>
         </div>
-        <div class="text-center py-6 text-xs text-slate-600">Predicta PRO &copy; 2024 - SocketIO Live Engine</div>
+        <div class="text-center py-6 text-xs text-slate-600">Predicta PRO &copy; 2024 - Live Data Engine</div>
     </div>
 
     <script>
@@ -242,20 +230,14 @@
                 filteredMatches: [],
                 loading: true,
                 connected: false,
-                socket: null,
                 nextDays: [],
                 filter: { sort: 'default', date: 'all', cat: 'all' },
                 
-                initSocket() {
+                initApp() {
                     this.generateNextDays();
-                    this.socket = io();
-                    this.socket.on('connect', () => { this.connected = true; console.log("Socket Bağlandı!"); });
-                    this.socket.on('disconnect', () => { this.connected = false; });
-                    this.socket.on('update_matches', (data) => {
-                        this.matches = data;
-                        this.loading = false;
-                        this.applyFilters();
-                    });
+                    this.fetchMatches();
+                    // Her 30 saniyede bir güncelle
+                    setInterval(() => this.fetchMatches(), 30000);
                 },
                 generateNextDays() {
                     const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
@@ -268,24 +250,34 @@
                         this.nextDays.push({ name: i === 0 ? 'Bugün' : days[d.getDay()], num: display, val: val });
                     }
                 },
+                setSort(type) {
+                    this.filter.sort = type;
+                    this.fetchMatches();
+                },
+                async fetchMatches() {
+                    try {
+                        this.connected = true;
+                        const res = await fetch(`/api/matches?sort_by=${this.filter.sort}`);
+                        if (!res.ok) throw new Error('API hatası');
+                        const data = await res.json();
+                        this.matches = data;
+                        this.loading = false;
+                        this.applyFilters();
+                    } catch (e) {
+                        console.error("Veri çekme hatası:", e);
+                        this.connected = false;
+                        this.loading = false;
+                    }
+                },
                 applyFilters() {
                     let data = [...this.matches];
                     if (this.filter.date !== 'all') data = data.filter(m => m.date.startsWith(this.filter.date));
                     if (this.filter.cat === 'home') data = data.filter(m => m.probs['1'] > 50);
                     if (this.filter.cat === 'over') data = data.filter(m => m.probs['over'] > 55);
                     if (this.filter.cat === 'btts') data = data.filter(m => m.probs['btts'] > 55);
-
-                    if(this.filter.sort === 'prob_high') {
-                        data.sort((a, b) => Math.max(b.probs['1'], b.probs['X'], b.probs['2']) - Math.max(a.probs['1'], a.probs['X'], a.probs['2']));
-                    } else if(this.filter.sort === 'prob_over') {
-                        data.sort((a, b) => b.probs.over - a.probs.over);
-                    } else {
-                        data.sort((a, b) => a.date.localeCompare(b.date));
-                    }
                     this.filteredMatches = data;
                 },
                 formatTime(dateStr) { return dateStr.split(' ')[1] || dateStr; },
-                // SADECE %50+ İHTİMALLERİ SARI YAP
                 isBest(match, type) {
                     const p = match.probs;
                     const max = Math.max(p['1'], p['X'], p['2']);
