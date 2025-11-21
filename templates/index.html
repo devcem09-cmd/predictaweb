@@ -2,12 +2,12 @@
 <html lang="tr" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Predicta PRO - Canlı Akış</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PredictaPRO - Canlı</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
     <script>
         tailwind.config = {
@@ -19,8 +19,6 @@
                         dark: '#0f172a',
                         card: '#1e293b',
                         gold: '#fbbf24',
-                        success: '#10b981',
-                        danger: '#ef4444',
                     }
                 }
             }
@@ -28,195 +26,144 @@
     </script>
     <style>
         [x-cloak] { display: none !important; }
-        .shimmer { background: linear-gradient(to right, #1e293b 4%, #334155 25%, #1e293b 36%); background-size: 1000px 100%; animation: shimmer 2s infinite linear; }
-        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
     </style>
 </head>
-<body class="bg-dark text-slate-300 antialiased pb-20">
+<body class="bg-dark text-slate-300 antialiased">
 
-    <!-- ALPINE STATE -->
-    <div x-data="liveApp()" x-init="initApp()" class="max-w-3xl mx-auto">
-
-        <!-- HEADER -->
-        <header class="sticky top-0 z-50 bg-dark/90 backdrop-blur-md border-b border-white/10 p-4 mb-6">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <div class="text-2xl font-extrabold text-white tracking-tighter">
-                        PREDICTA<span class="text-gold">PRO</span>
-                    </div>
-                    <div class="hidden md:flex px-2 py-1 bg-success/20 text-success text-[10px] font-bold rounded-full items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span> LIVE
-                    </div>
-                </div>
-                
-                <!-- Menü Butonları -->
-                <div class="flex gap-3">
-                    <a href="/history" class="px-4 py-2 text-xs font-bold bg-card hover:bg-slate-700 border border-white/10 rounded-lg transition text-white">
-                        📜 Geçmiş
-                    </a>
-                    <button @click="fetchData(false)" class="p-2 bg-gold text-dark rounded-lg hover:bg-yellow-400 transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" :class="{'animate-spin': loading}">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Filtreler -->
-            <div class="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                <select x-model="filterConf" class="bg-card border border-white/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-gold">
-                    <option value="0">Tüm Oranlar</option>
-                    <option value="50">%50+ İhtimal</option>
-                    <option value="60">%60+ İhtimal</option>
-                    <option value="70">%70+ İhtimal</option>
-                </select>
-                <select x-model="sortBy" class="bg-card border border-white/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-gold">
-                    <option value="date">⏰ Tarihe Göre</option>
-                    <option value="conf_1">🏠 MS 1 Güven</option>
-                    <option value="conf_x">⚖️ Beraberlik</option>
-                    <option value="conf_2">✈️ MS 2 Güven</option>
-                    <option value="conf_over">⚽ 2.5 ÜST</option>
-                    <option value="conf_under">📉 2.5 ALT</option>
-                    <option value="conf_btts_yes">🤝 KG VAR</option>
-                    <option value="conf_btts_no">⛔ KG YOK</option>
-                </select>
-            </div>
-        </header>
-
-        <!-- İÇERİK -->
-        <main class="px-4">
-            
-            <!-- Yükleniyor (Skeleton) -->
-            <template x-if="loading && matches.length === 0">
-                <div class="space-y-4">
-                    <div class="h-48 rounded-2xl shimmer"></div>
-                    <div class="h-48 rounded-2xl shimmer"></div>
-                </div>
-            </template>
-
-            <!-- Maç Listesi -->
-            <div class="space-y-4">
-                <template x-for="match in filteredMatches" :key="match.id || match.date + match.home">
-                    <div class="bg-card border border-white/5 rounded-2xl overflow-hidden shadow-lg hover:border-white/10 transition-all duration-300">
-                        
-                        <!-- Kart Başlığı -->
-                        <div class="p-4 border-b border-white/5 flex justify-between items-center text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                            <span x-text="match.league"></span>
-                            <span x-text="match.date.split(' ')[1]"></span> <!-- Sadece saat -->
-                        </div>
-
-                        <!-- Takımlar -->
-                        <div class="p-5">
-                            <div class="flex justify-between items-center mb-6">
-                                <div class="text-lg font-bold text-white" x-text="match.home"></div>
-                                <div class="px-2 py-1 bg-slate-800 text-slate-500 text-xs rounded font-bold">VS</div>
-                                <div class="text-lg font-bold text-white text-right" x-text="match.away"></div>
-                            </div>
-
-                            <!-- Analiz Barları -->
-                            <div class="space-y-3 text-xs font-semibold">
-                                <!-- MS 1 -->
-                                <div class="flex items-center gap-3">
-                                    <span class="w-8 text-slate-400">MS 1</span>
-                                    <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                        <div class="h-full bg-success transition-all duration-1000" :style="`width: ${match.prediction.probs['1']}%`"></div>
-                                    </div>
-                                    <span class="w-8 text-right text-white" x-text="Math.round(match.prediction.probs['1']) + '%'"></span>
-                                </div>
-                                <!-- 2.5 ÜST -->
-                                <div class="flex items-center gap-3">
-                                    <span class="w-8 text-slate-400">ÜST</span>
-                                    <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                        <div class="h-full bg-gold transition-all duration-1000" :style="`width: ${match.prediction.probs['over']}%`"></div>
-                                    </div>
-                                    <span class="w-8 text-right text-white" x-text="Math.round(match.prediction.probs['over']) + '%'"></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bahis Oranları Grid -->
-                        <div class="grid grid-cols-3 border-t border-white/5 divide-x divide-white/5 bg-white/5">
-                            <div class="p-3 text-center group cursor-pointer hover:bg-white/5 transition">
-                                <div class="text-[9px] text-slate-400 font-bold mb-1">MAÇ SONUCU 1</div>
-                                <div class="text-sm font-extrabold text-gold" x-text="match.odds['1'] || '-'"></div>
-                            </div>
-                            <div class="p-3 text-center group cursor-pointer hover:bg-white/5 transition">
-                                <div class="text-[9px] text-slate-400 font-bold mb-1">BERABERLİK</div>
-                                <div class="text-sm font-extrabold text-white" x-text="match.odds['X'] || '-'"></div>
-                            </div>
-                            <div class="p-3 text-center group cursor-pointer hover:bg-white/5 transition">
-                                <div class="text-[9px] text-slate-400 font-bold mb-1">MAÇ SONUCU 2</div>
-                                <div class="text-sm font-extrabold text-white" x-text="match.odds['2'] || '-'"></div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- Maç Bulunamadı -->
-                <div x-show="!loading && filteredMatches.length === 0" x-cloak class="text-center py-10 text-slate-500">
-                    Kriterlere uygun maç bulunamadı.
-                </div>
-            </div>
-        </main>
+    <div x-data="app()" x-init="loadMatches()" class="max-w-4xl mx-auto p-4 md:p-8">
         
-        <!-- TOAST -->
-        <div x-show="toast.show" x-transition 
-             class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white text-black px-4 py-2 rounded-full text-xs font-bold shadow-2xl z-50"
-             x-text="toast.message">
+        <!-- HEADER -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-white/10 pb-6">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                    PREDICTA<span class="text-gold">PRO</span>
+                </h1>
+                <p class="text-slate-400 text-sm mt-2">Canlı Maç Tahminleri</p>
+            </div>
+            
+            <div class="flex gap-2 w-full md:w-auto">
+                <button @click="loadMatches()" class="px-4 py-2 text-sm font-bold bg-gold text-dark hover:bg-yellow-400 rounded-lg transition flex-1 md:flex-none">
+                    🔄 Yenile
+                </button>
+            </div>
+        </div>
+
+        <!-- MAÇLAR -->
+        <div class="space-y-5" id="match-list">
+            <div class="h-40 bg-card rounded-lg animate-pulse"></div>
+            <div class="h-40 bg-card rounded-lg animate-pulse"></div>
         </div>
 
     </div>
 
     <script>
-        function liveApp() {
+        function app() {
             return {
                 matches: [],
-                loading: false,
-                filterConf: 0,
-                sortBy: 'date',
-                toast: { show: false, message: '' },
-
-                async initApp() {
-                    await this.fetchData();
-                    setInterval(() => this.fetchData(true), 30000); // 30 sn oto yenileme
-                },
-
-                async fetchData(background = false) {
-                    if (!background) this.loading = true;
+                
+                async loadMatches() {
                     try {
-                        const res = await fetch('/api/matches/live');
-                        const data = await res.json();
-                        if (data.success) {
-                            this.matches = data.matches;
-                            if (background) this.showToast('Veriler güncellendi');
-                        }
+                        const response = await fetch("/api/matches/live");
+                        const data = await response.json();
+                        this.renderMatches(data.matches || []);
+                        setTimeout(() => this.loadMatches(), 10000);
                     } catch (e) {
                         console.error(e);
-                        if (background) this.showToast('Bağlantı Hatası');
-                    } finally {
-                        this.loading = false;
                     }
                 },
 
-                get filteredMatches() {
-                    let m = this.matches.filter(match => {
-                        if (!match.prediction) return false;
-                        const p = match.prediction.probs;
-                        const maxProb = Math.max(p['1'], p['X'], p['2'], p['over']);
-                        return maxProb >= parseInt(this.filterConf);
-                    });
+                renderMatches(matches) {
+                    const container = document.getElementById("match-list");
+                    container.innerHTML = "";
 
-                    return m.sort((a, b) => {
-                        if (this.sortBy === 'date') return a.date.localeCompare(b.date);
-                        if (this.sortBy === 'prob_1') return b.prediction.probs['1'] - a.prediction.probs['1'];
-                        if (this.sortBy === 'prob_over') return b.prediction.probs['over'] - a.prediction.probs['over'];
-                    });
-                },
+                    if (!matches.length) {
+                        container.innerHTML = '<div class="text-center py-10 text-slate-500">Maç bulunamadı.</div>';
+                        return;
+                    }
 
-                showToast(msg) {
-                    this.toast.message = msg;
-                    this.toast.show = true;
-                    setTimeout(() => this.toast.show = false, 3000);
+                    matches.forEach(match => {
+                        const p = match.prediction?.probs || {};
+                        
+                        const html = `
+                            <div class="bg-card border border-white/10 rounded-xl p-6 shadow-lg hover:border-white/20 transition-all">
+                                <!-- Üst Bilgi -->
+                                <div class="flex justify-between items-center text-xs font-bold text-slate-400 uppercase mb-4">
+                                    <span>${match.league}</span>
+                                    <span>${match.date}</span>
+                                </div>
+
+                                <!-- Takımlar -->
+                                <div class="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                                    <span class="text-lg font-bold text-white">${match.home}</span>
+                                    <span class="text-xs text-slate-500 font-bold">vs</span>
+                                    <span class="text-lg font-bold text-white">${match.away}</span>
+                                </div>
+
+                                <!-- Analiz Barları -->
+                                <div class="space-y-3 mb-6">
+                                    <!-- MS 1 -->
+                                    <div>
+                                        <div class="flex justify-between mb-1 text-xs">
+                                            <span class="text-slate-400">MS 1</span>
+                                            <span class="font-bold text-white">%${Math.round(p["1"] || 0)}</span>
+                                        </div>
+                                        <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                            <div class="h-full bg-emerald-500" style="width: ${p["1"] || 0}%"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2.5 ÜST -->
+                                    <div>
+                                        <div class="flex justify-between mb-1 text-xs">
+                                            <span class="text-slate-400">Üst 2.5</span>
+                                            <span class="font-bold text-white">%${Math.round(p["over"] || 0)}</span>
+                                        </div>
+                                        <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                            <div class="h-full bg-gold" style="width: ${p["over"] || 0}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- İstatistik Kutuları -->
+                                <div class="grid grid-cols-2 gap-3 mb-6">
+                                    <div class="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                                        <div class="text-xs text-slate-400 mb-1">KG Var</div>
+                                        <div class="text-lg font-bold text-gold">%${Math.round(p["btts_yes"] || 0)}</div>
+                                    </div>
+                                    <div class="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                                        <div class="text-xs text-slate-400 mb-1">KG Yok</div>
+                                        <div class="text-lg font-bold text-gold">%${Math.round(p["btts_no"] || 0)}</div>
+                                    </div>
+                                    <div class="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                                        <div class="text-xs text-slate-400 mb-1">Alt 2.5</div>
+                                        <div class="text-lg font-bold text-gold">%${Math.round(p["under"] || 0)}</div>
+                                    </div>
+                                    <div class="bg-slate-800/50 rounded-lg p-3 border border-white/5">
+                                        <div class="text-xs text-slate-400 mb-1">Üst 2.5</div>
+                                        <div class="text-lg font-bold text-gold">%${Math.round(p["over"] || 0)}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Oranlar -->
+                                <div class="grid grid-cols-3 gap-2 pt-4 border-t border-white/5">
+                                    <div class="text-center">
+                                        <div class="text-xs text-slate-400 mb-1">MS 1</div>
+                                        <div class="text-lg font-bold text-gold">${match.odds["1"] || '-'}</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-xs text-slate-400 mb-1">BERABERLİK</div>
+                                        <div class="text-lg font-bold text-white">${match.odds["X"] || '-'}</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-xs text-slate-400 mb-1">MS 2</div>
+                                        <div class="text-lg font-bold text-white">${match.odds["2"] || '-'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        container.innerHTML += html;
+                    });
                 }
             }
         }
