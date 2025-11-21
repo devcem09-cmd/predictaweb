@@ -1,8 +1,8 @@
 Flask==3.0.0
 flask-cors==4.0.0
-requests==2.31.0
-pandas==2.1.4
-numpy==1.26.2
-scipy==1.11.4
-rapidfuzz==3.5.2
-gunicorn==21.2.0
+pandas
+numpy
+scipy
+rapidfuzz
+requests
+gunicorn
