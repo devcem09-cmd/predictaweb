@@ -16,21 +16,21 @@ from rapidfuzz import process, fuzz
 from dotenv import load_dotenv
 
 # --- YAPILANDIRMA ---
-load_dotenv() # .env dosyasını yükle
+load_dotenv() # .env dosyasını okur
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, 'data', 'final_unified_dataset.csv')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
-# Logging Ayarları
+# Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("PredictaPRO")
 
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 CORS(app)
 
-# Veritabanı Ayarları (SQLite)
+# Veritabanı (SQLite)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///predictapro.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -45,7 +45,7 @@ class Match(db.Model):
     date = db.Column(db.DateTime)
     odds = db.Column(db.Text) 
     
-    # Tahminler
+    # Tahmin Verileri
     prob_home = db.Column(db.Float, default=0.0)
     prob_draw = db.Column(db.Float, default=0.0)
     prob_away = db.Column(db.Float, default=0.0)
@@ -85,11 +85,11 @@ class MatchPredictor:
         logger.info(f"📂 Veritabanı başlatılıyor... Yol: {CSV_PATH}")
         
         if not os.path.exists(CSV_PATH):
-            logger.warning(f"⚠️ UYARI: CSV Bulunamadı ({CSV_PATH}). Tahminler çalışmayacak.")
+            logger.warning(f"⚠️ UYARI: CSV Bulunamadı ({CSV_PATH}).")
             return
 
         try:
-            # CSV OKUMA (Senin veri setine uygun)
+            # CSV Okuma (Senin formatına uygun)
             required_cols = ['home_team', 'away_team', 'home_score', 'away_score']
             df = pd.read_csv(CSV_PATH, usecols=required_cols, encoding='utf-8', on_bad_lines='skip')
             
@@ -169,13 +169,13 @@ class MatchPredictor:
 
 predictor = MatchPredictor()
 
-# --- NESİNE PARSE MANTIĞI (DÜZELTİLDİ) ---
+# --- NESİNE VERİ ÇEKME (DÜZELTİLDİ: ID 14 ve 450) ---
 def fetch_live_data():
     with app.app_context():
-        # Token .env dosyasından okunur
+        # .env kontrolü
         auth_token = os.getenv("NESINE_AUTH")
         if not auth_token:
-            logger.error("⚠️ NESINE_AUTH token yok!")
+            logger.error("⚠️ NESINE_AUTH token bulunamadı!")
             return
 
         url = "https://cdnbulten.nesine.com/api/bulten/getprebultenfull"
@@ -198,39 +198,40 @@ def fetch_live_data():
 
                 match_code = str(m.get("C"))
                 
-                # --- ORAN AYIKLAMA (GÜNCELLENDİ) ---
+                # Oranları Varsayılan Olarak Boş Ata
                 odds = {"ms1": "-", "msx": "-", "ms2": "-", "alt": "-", "ust": "-", "kgvar": "-", "kgyok": "-"}
-                markets = m.get("MA", [])
                 
+                # Marketleri Gez
+                markets = m.get("MA", [])
                 for market in markets:
                     mtid = market.get("MTID")
                     oca = market.get("OCA", [])
                     
-                    # MTID 1: Maç Sonucu
+                    # MTID 1: Maç Sonucu (MS)
                     if mtid == 1:
                         for o in oca:
                             if o["N"] == 1: odds["ms1"] = o["O"]
                             elif o["N"] == 2: odds["msx"] = o["O"]
                             elif o["N"] == 3: odds["ms2"] = o["O"]
                     
-                    # MTID 16: KG Var/Yok (DÜZELTME BURADA)
-                    elif mtid == 16:
+                    # MTID 14: Karşılıklı Gol (KG Var/Yok) - SENİN VERİNE GÖRE
+                    elif mtid == 14:
                         for o in oca:
-                            if o["N"] == 1: odds["kgvar"] = o["O"] # N:1 -> Var
-                            elif o["N"] == 2: odds["kgyok"] = o["O"] # N:2 -> Yok
+                            if o["N"] == 1: odds["kgvar"] = o["O"] # N:1 -> KG VAR
+                            elif o["N"] == 2: odds["kgyok"] = o["O"] # N:2 -> KG YOK
                             
-                    # MTID 23: 2.5 Alt/Üst (STANDART IDDAA ID)
-                    elif mtid == 23:
+                    # MTID 450: 2.5 Gol Alt/Üst - SENİN VERİNE GÖRE
+                    elif mtid == 450:
                          for o in oca:
-                             if o["N"] == 1: odds["ust"] = o["O"] # N:1 -> Üst
-                             elif o["N"] == 2: odds["alt"] = o["O"] # N:2 -> Alt
+                             if o["N"] == 1: odds["ust"] = o["O"] # N:1 -> ÜST
+                             elif o["N"] == 2: odds["alt"] = o["O"] # N:2 -> ALT
 
                 if odds["ms1"] == "-": continue
 
-                # Tahmin
+                # Tahmin Yap
                 p1, px, p2, pover, pbtts = predictor.predict(m.get("HN"), m.get("AN"))
 
-                # DB Kayıt
+                # Veritabanına Yaz
                 existing = Match.query.filter_by(code=match_code).first()
                 
                 if not existing:
@@ -250,16 +251,18 @@ def fetch_live_data():
                     existing.odds = json.dumps(odds)
             
             db.session.commit()
-            logger.info(f"✅ Veri Güncellendi. {count} yeni maç eklendi.")
+            logger.info(f"✅ Başarılı: {count} yeni maç eklendi, oranlar güncellendi.")
 
         except Exception as e:
             logger.error(f"❌ API Hatası: {e}")
 
+# --- ZAMANLAYICI ---
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=fetch_live_data, trigger="interval", minutes=5)
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
 
+# --- ROTALAR ---
 @app.route('/')
 def index(): return render_template('index.html')
 
@@ -287,5 +290,6 @@ if __name__ == '__main__':
         db.create_all()
         try: fetch_live_data()
         except: pass
+    
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
