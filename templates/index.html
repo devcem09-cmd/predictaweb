@@ -1,4 +1,386 @@
 <!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Predicta PRO - Live</title>
+    <!-- Fontlar -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #fbbf24;       /* Sarı */
+            --primary-dark: #d97706;
+            --secondary: #6366f1;     /* İndigo */
+            --success: #10b981;       /* Yeşil */
+            --danger: #ef4444;        /* Kırmızı */
+            --dark: #0f172a;          /* Arka Plan */
+            --card-bg: #1e293b;       /* Kart Rengi */
+            --border: 1px solid rgba(255,255,255,0.08);
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --glass: rgba(30, 41, 59, 0.7);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--dark); 
+            color: var(--text); 
+            padding-bottom: 80px; 
+            overscroll-behavior-y: none; /* Pull-to-refresh engelleme (App hissi için) */
+        }
+
+        /* --- HEADER & NAV --- */
+        .app-header {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            position: sticky; top: 0; z-index: 100;
+            border-bottom: var(--border);
+            padding: 12px 16px;
+        }
+
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        
+        .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+        .brand span { color: var(--primary); }
+        .live-badge { 
+            font-size: 10px; background: rgba(16, 185, 129, 0.2); color: var(--success); 
+            padding: 4px 8px; border-radius: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px;
+        }
+        .live-dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite; }
+
+        /* --- FİLTRELER --- */
+        .filters-scroll {
+            display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;
+        }
+        .filters-scroll::-webkit-scrollbar { display: none; }
+
+        select, .btn-refresh {
+            background: #334155; color: #fff; border: var(--border);
+            padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+            outline: none; appearance: none;
+        }
+        select:focus { border-color: var(--primary); }
+        .btn-refresh { background: var(--primary); color: #000; border: none; font-weight: 800; }
+        .btn-refresh:active { transform: scale(0.95); }
+
+        /* --- KART YAPISI --- */
+        .container { max-width: 800px; margin: 15px auto; padding: 0 15px; }
+
+        .match-card {
+            background: var(--card-bg); border: var(--border); border-radius: 16px;
+            margin-bottom: 16px; overflow: hidden; position: relative;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .card-body { padding: 16px; }
+
+        .league-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .teams-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .team-name { font-size: 15px; font-weight: 700; line-height: 1.3; }
+        .team-name.away { text-align: right; }
+        .vs-badge { background: #334155; color: var(--text-muted); font-size: 10px; padding: 4px 8px; border-radius: 6px; font-weight: 800; }
+
+        /* Analiz Barları */
+        .ai-analysis { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+        .bar-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 11px; }
+        .bar-row:last-child { margin-bottom: 0; }
+        .bar-label { width: 60px; font-weight: 600; color: var(--text-muted); }
+        .bar-track { flex: 1; height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; margin: 0 10px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+        .bar-val { width: 30px; text-align: right; font-weight: 700; }
+
+        /* Oran Grid */
+        .odds-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+            background: rgba(255,255,255,0.05); border-top: var(--border);
+        }
+        .odd-item {
+            background: var(--card-bg); padding: 12px 5px; text-align: center;
+            display: flex; flex-direction: column; gap: 4px; position: relative;
+        }
+        .odd-title { font-size: 9px; color: var(--text-muted); font-weight: 700; }
+        .odd-val { font-size: 13px; font-weight: 800; color: #fff; }
+
+        /* Altın Parlama Efekti */
+        .gold-glow {
+            background: linear-gradient(180deg, rgba(251, 191, 36, 0.1) 0%, rgba(251, 191, 36, 0) 100%);
+            box-shadow: inset 0 2px 0 0 var(--primary);
+        }
+        .gold-glow .odd-val { color: var(--primary); }
+
+        /* --- SKELETON LOADING --- */
+        .skeleton { animation: shimmer 1.5s infinite linear; background: linear-gradient(to right, #1e293b 4%, #334155 25%, #1e293b 36%); background-size: 1000px 100%; }
+        .sk-card { height: 180px; border-radius: 16px; margin-bottom: 15px; }
+        
+        /* --- TOAST --- */
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #fff; color: #000; padding: 10px 20px; border-radius: 30px;
+            font-size: 12px; font-weight: 700; opacity: 0; transition: all 0.3s;
+            pointer-events: none; z-index: 200; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="header-top">
+            <div class="brand">PREDICTA<span>PRO</span></div>
+            <div class="live-indicator">
+                <div class="live-badge"><div class="live-dot"></div> CANLI AKIŞ</div>
+            </div>
+        </div>
+
+        <div class="filters-scroll">
+            <select id="sort-select">
+                <option value="date">⏰ Tarihe Göre</option>
+                <option value="conf_1">🏠 MS 1 Güven</option>
+                <option value="conf_x">⚖️ Beraberlik</option>
+                <option value="conf_2">✈️ MS 2 Güven</option>
+                <option value="conf_over">⚽ 2.5 ÜST</option>
+                <option value="conf_under">📉 2.5 ALT</option>
+                <option value="conf_btts_yes">🤝 KG VAR</option>
+                <option value="conf_btts_no">⛔ KG YOK</option>
+            </select>
+            
+            <select id="conf-filter">
+                <option value="0">Tüm Oranlar</option>
+                <option value="40">%40+ İhtimal</option>
+                <option value="50">%50+ İhtimal</option>
+                <option value="60">%60+ İhtimal</option>
+                <option value="70">%70+ İhtimal</option>
+            </select>
+
+            <button class="btn-refresh" id="btn-refresh">YENİLE</button>
+        </div>
+    </header>
+
+    <div class="container" id="app-container">
+        <!-- İskelet Yükleme Ekranı (İlk Açılış) -->
+        <div class="skeleton sk-card"></div>
+        <div class="skeleton sk-card"></div>
+        <div class="skeleton sk-card"></div>
+    </div>
+
+    <div id="toast" class="toast">Veriler Güncellendi</div>
+
+    <script>
+        // --- AYARLAR ---
+        // Eğer Python backend'i Render'a yüklediysen URL'i buraya yapıştır:
+        // Örn: 'https://predicta-backend.onrender.com/api/matches/live'
+        const API_URL = '/api/matches/live'; 
+        const REFRESH_RATE = 30000; // 30 Saniye
+
+        // --- STATE YÖNETİMİ ---
+        let appState = {
+            matches: [],
+            isFetching: false
+        };
+
+        const dom = {
+            container: document.getElementById('app-container'),
+            sort: document.getElementById('sort-select'),
+            filter: document.getElementById('conf-filter'),
+            refreshBtn: document.getElementById('btn-refresh'),
+            toast: document.getElementById('toast')
+        };
+
+        // --- BAŞLATMA ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+            // Otomatik Yenileme Döngüsü
+            setInterval(() => fetchData(true), REFRESH_RATE);
+        });
+
+        // Event Listeners (Modern Yöntem)
+        dom.sort.addEventListener('change', renderApp);
+        dom.filter.addEventListener('change', renderApp);
+        dom.refreshBtn.addEventListener('click', () => fetchData(false));
+
+        // --- VERİ ÇEKME ---
+        async function fetchData(isBackground = false) {
+            if (appState.isFetching) return;
+            appState.isFetching = true;
+
+            if (!isBackground && appState.matches.length === 0) {
+                // Sadece ilk yüklemede loading göster, arkada güncellerken gösterme
+                dom.container.innerHTML = '<div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>';
+            }
+
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                
+                if (data.success) {
+                    appState.matches = data.matches;
+                    renderApp();
+                    if (isBackground) showToast("Canlı veriler güncellendi");
+                }
+            } catch (err) {
+                console.error("API Hatası:", err);
+                if (!isBackground) {
+                    dom.container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">
+                        <div>Veri çekilemedi.</div>
+                        <button onclick="fetchData()" class="btn-refresh" style="margin-top:10px">Tekrar Dene</button>
+                    </div>`;
+                }
+                if (isBackground) showToast("Bağlantı Hatası!");
+            } finally {
+                appState.isFetching = false;
+            }
+        }
+
+        // --- UI RENDER ---
+        function renderApp() {
+            const sortType = dom.sort.value;
+            const minConf = parseInt(dom.filter.value);
+
+            let filtered = [...appState.matches];
+
+            // 1. FİLTRELEME
+            filtered = filtered.filter(m => {
+                if (!m.prediction) return false;
+                const p = m.prediction.probs;
+                // Kullanıcının seçtiği kritere göre maksimum ihtimali kontrol et
+                const maxP = Math.max(
+                    p['1'], p['X'], p['2'], 
+                    p.over, p.under, 
+                    p.btts_yes, p.btts_no
+                );
+                return maxP >= minConf;
+            });
+
+            // 2. SIRALAMA
+            filtered.sort((a, b) => {
+                const pa = a.prediction?.probs || {};
+                const pb = b.prediction?.probs || {};
+
+                switch(sortType) {
+                    case 'conf_1': return (pb['1'] || 0) - (pa['1'] || 0);
+                    case 'conf_x': return (pb['X'] || 0) - (pa['X'] || 0);
+                    case 'conf_2': return (pb['2'] || 0) - (pa['2'] || 0);
+                    case 'conf_over': return (pb.over || 0) - (pa.over || 0);
+                    case 'conf_under': return (pb.under || 0) - (pa.under || 0);
+                    case 'conf_btts_yes': return (pb.btts_yes || 0) - (pa.btts_yes || 0);
+                    case 'conf_btts_no': return (pb.btts_no || 0) - (pa.btts_no || 0);
+                    case 'date': default: return a.date.localeCompare(b.date);
+                }
+            });
+
+            if (filtered.length === 0) {
+                dom.container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted)">Kriterlere uygun maç bulunamadı.</div>';
+                return;
+            }
+
+            dom.container.innerHTML = filtered.map(match => createCard(match)).join('');
+        }
+
+        function createCard(match) {
+            const p = match.prediction.probs;
+            const o = match.odds;
+
+            // Vurgulama Mantığı (Hangi kutu altın rengi yanacak?)
+            const is1 = p['1'] > p['X'] && p['1'] > p['2'];
+            const isX = p['X'] > p['1'] && p['X'] > p['2'];
+            const is2 = p['2'] > p['1'] && p['2'] > p['X'];
+            
+            // Oranları Güvenli Çek
+            const getOdd = (main, sub) => (o[main] && o[main][sub]) ? o[main][sub] : (o[main] || '-');
+            
+            const odd1 = o['1'] || '-';
+            const oddX = o['X'] || '-';
+            const odd2 = o['2'] || '-';
+            const oddOver = getOdd('Over/Under +2.5', 'Over +2.5');
+            const oddUnder = getOdd('Over/Under +2.5', 'Under +2.5');
+            const oddKgVar = getOdd('Both Teams To Score', 'Yes');
+
+            return `
+                <div class="match-card">
+                    <div class="card-body">
+                        <div class="league-info">
+                            <span>${match.league}</span>
+                            <span>${match.date}</span>
+                        </div>
+                        
+                        <div class="teams-wrapper">
+                            <div class="team-name home">${match.home}</div>
+                            <span class="vs-badge">VS</span>
+                            <div class="team-name away">${match.away}</div>
+                        </div>
+
+                        <div class="ai-analysis">
+                            ${createBar('MS 1', p['1'], 'var(--success)')}
+                            ${createBar('MS 0', p['X'], 'var(--secondary)')}
+                            ${createBar('MS 2', p['2'], 'var(--danger)')}
+                            ${createBar('2.5 ÜST', p.over, 'var(--primary)')}
+                        </div>
+                    </div>
+
+                    <div class="odds-grid">
+                        <div class="odd-item ${is1 ? 'gold-glow' : ''}">
+                            <div class="odd-title">MS 1 (%${p['1'].toFixed(0)})</div>
+                            <div class="odd-val">${odd1}</div>
+                        </div>
+                        <div class="odd-item ${isX ? 'gold-glow' : ''}">
+                            <div class="odd-title">BER (%${p['X'].toFixed(0)})</div>
+                            <div class="odd-val">${oddX}</div>
+                        </div>
+                        <div class="odd-item ${is2 ? 'gold-glow' : ''}">
+                            <div class="odd-title">MS 2 (%${p['2'].toFixed(0)})</div>
+                            <div class="odd-val">${odd2}</div>
+                        </div>
+                        <div class="odd-item ${(p.over > p.under) ? 'gold-glow' : ''}">
+                            <div class="odd-title">ÜST (%${p.over.toFixed(0)})</div>
+                            <div class="odd-val">${oddOver}</div>
+                        </div>
+                        <div class="odd-item ${(p.under > p.over) ? 'gold-glow' : ''}">
+                            <div class="odd-title">ALT (%${p.under.toFixed(0)})</div>
+                            <div class="odd-val">${oddUnder}</div>
+                        </div>
+                        <div class="odd-item ${(p.btts_yes > p.btts_no) ? 'gold-glow' : ''}">
+                            <div class="odd-title">KG VAR (%${p.btts_yes.toFixed(0)})</div>
+                            <div class="odd-val">${oddKgVar}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createBar(label, val, color) {
+            return `
+                <div class="bar-row">
+                    <div class="bar-label">${label}</div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width:${val}%; background:${color}"></div>
+                    </div>
+                    <div class="bar-val">%${val.toFixed(0)}</div>
+                </div>`;
+        }
+
+        function showToast(message) {
+            const t = dom.toast;
+            t.textContent = message;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
 <html lang="tr" class="dark">
 <head>
     <meta charset="UTF-8">
