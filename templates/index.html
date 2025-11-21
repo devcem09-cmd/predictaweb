@@ -2,18 +2,13 @@
 <html lang="tr" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Predicta PRO - Geçmiş Analizler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Predicta PRO - Canlı Akış</title>
     
-    <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js (CDN - Etkileşim için) -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Tailwind Config (Özel Renkler) -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -24,180 +19,204 @@
                         dark: '#0f172a',
                         card: '#1e293b',
                         gold: '#fbbf24',
-                        goldDark: '#d97706',
+                        success: '#10b981',
+                        danger: '#ef4444',
                     }
                 }
             }
         }
     </script>
     <style>
-        [x-cloak] { display: none !important; } /* Yüklenirken titremeyi engeller */
+        [x-cloak] { display: none !important; }
+        .shimmer { background: linear-gradient(to right, #1e293b 4%, #334155 25%, #1e293b 36%); background-size: 1000px 100%; animation: shimmer 2s infinite linear; }
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
     </style>
 </head>
-<body class="bg-dark text-slate-300 antialiased p-4 md:p-8">
+<body class="bg-dark text-slate-300 antialiased pb-20">
 
-    <!-- ALPINE.JS STATE YÖNETİMİ -->
-    <!-- Sunucudan gelen veriyi JS objesine çeviriyoruz -->
-    <div x-data="matchData()" class="max-w-6xl mx-auto">
+    <!-- ALPINE STATE -->
+    <div x-data="liveApp()" x-init="initApp()" class="max-w-3xl mx-auto">
 
-        <!-- BAŞLIK & İSTATİSTİKLER -->
-        <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-white tracking-tight">
-                    Predicta<span class="text-gold">PRO</span> <span class="text-slate-500 text-xl font-medium">History</span>
-                </h1>
-                <p class="text-slate-400 text-sm mt-1">Yapay zeka modelinin geçmiş performans kayıtları.</p>
+        <!-- HEADER -->
+        <header class="sticky top-0 z-50 bg-dark/90 backdrop-blur-md border-b border-white/10 p-4 mb-6">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <div class="text-2xl font-extrabold text-white tracking-tighter">
+                        PREDICTA<span class="text-gold">PRO</span>
+                    </div>
+                    <div class="hidden md:flex px-2 py-1 bg-success/20 text-success text-[10px] font-bold rounded-full items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span> LIVE
+                    </div>
+                </div>
+                
+                <!-- Menü Butonları -->
+                <div class="flex gap-3">
+                    <a href="/history" class="px-4 py-2 text-xs font-bold bg-card hover:bg-slate-700 border border-white/10 rounded-lg transition text-white">
+                        📜 Geçmiş
+                    </a>
+                    <button @click="fetchData(false)" class="p-2 bg-gold text-dark rounded-lg hover:bg-yellow-400 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" :class="{'animate-spin': loading}">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
             </div>
+
+            <!-- Filtreler -->
+            <div class="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <select x-model="filterConf" class="bg-card border border-white/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-gold">
+                    <option value="0">Tüm Oranlar</option>
+                    <option value="50">%50+ İhtimal</option>
+                    <option value="60">%60+ İhtimal</option>
+                    <option value="70">%70+ İhtimal</option>
+                </select>
+                <select x-model="sortBy" class="bg-card border border-white/10 text-xs rounded-lg px-3 py-2 outline-none focus:border-gold">
+                    <option value="date">⏰ Tarihe Göre</option>
+                    <option value="conf_1">🏠 MS 1 Güven</option>
+                    <option value="conf_x">⚖️ Beraberlik</option>
+                    <option value="conf_2">✈️ MS 2 Güven</option>
+                    <option value="conf_over">⚽ 2.5 ÜST</option>
+                    <option value="conf_under">📉 2.5 ALT</option>
+                    <option value="conf_btts_yes">🤝 KG VAR</option>
+                    <option value="conf_btts_no">⛔ KG YOK</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- İÇERİK -->
+        <main class="px-4">
             
-            <!-- Arama Kutusu -->
-            <div class="relative w-full md:w-64">
-                <input 
-                    x-model="search" 
-                    type="text" 
-                    placeholder="Takım veya lig ara..." 
-                    class="w-full bg-card border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition"
-                >
-                <svg class="w-4 h-4 text-slate-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <!-- Yükleniyor (Skeleton) -->
+            <template x-if="loading && matches.length === 0">
+                <div class="space-y-4">
+                    <div class="h-48 rounded-2xl shimmer"></div>
+                    <div class="h-48 rounded-2xl shimmer"></div>
+                </div>
+            </template>
+
+            <!-- Maç Listesi -->
+            <div class="space-y-4">
+                <template x-for="match in filteredMatches" :key="match.id || match.date + match.home">
+                    <div class="bg-card border border-white/5 rounded-2xl overflow-hidden shadow-lg hover:border-white/10 transition-all duration-300">
+                        
+                        <!-- Kart Başlığı -->
+                        <div class="p-4 border-b border-white/5 flex justify-between items-center text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                            <span x-text="match.league"></span>
+                            <span x-text="match.date.split(' ')[1]"></span> <!-- Sadece saat -->
+                        </div>
+
+                        <!-- Takımlar -->
+                        <div class="p-5">
+                            <div class="flex justify-between items-center mb-6">
+                                <div class="text-lg font-bold text-white" x-text="match.home"></div>
+                                <div class="px-2 py-1 bg-slate-800 text-slate-500 text-xs rounded font-bold">VS</div>
+                                <div class="text-lg font-bold text-white text-right" x-text="match.away"></div>
+                            </div>
+
+                            <!-- Analiz Barları -->
+                            <div class="space-y-3 text-xs font-semibold">
+                                <!-- MS 1 -->
+                                <div class="flex items-center gap-3">
+                                    <span class="w-8 text-slate-400">MS 1</span>
+                                    <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-success transition-all duration-1000" :style="`width: ${match.prediction.probs['1']}%`"></div>
+                                    </div>
+                                    <span class="w-8 text-right text-white" x-text="Math.round(match.prediction.probs['1']) + '%'"></span>
+                                </div>
+                                <!-- 2.5 ÜST -->
+                                <div class="flex items-center gap-3">
+                                    <span class="w-8 text-slate-400">ÜST</span>
+                                    <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-gold transition-all duration-1000" :style="`width: ${match.prediction.probs['over']}%`"></div>
+                                    </div>
+                                    <span class="w-8 text-right text-white" x-text="Math.round(match.prediction.probs['over']) + '%'"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bahis Oranları Grid -->
+                        <div class="grid grid-cols-3 border-t border-white/5 divide-x divide-white/5 bg-white/5">
+                            <div class="p-3 text-center group cursor-pointer hover:bg-white/5 transition">
+                                <div class="text-[9px] text-slate-400 font-bold mb-1">MAÇ SONUCU 1</div>
+                                <div class="text-sm font-extrabold text-gold" x-text="match.odds['1'] || '-'"></div>
+                            </div>
+                            <div class="p-3 text-center group cursor-pointer hover:bg-white/5 transition">
+                                <div class="text-[9px] text-slate-400 font-bold mb-1">BERABERLİK</div>
+                                <div class="text-sm font-extrabold text-white" x-text="match.odds['X'] || '-'"></div>
+                            </div>
+                            <div class="p-3 text-center group cursor-pointer hover:bg-white/5 transition">
+                                <div class="text-[9px] text-slate-400 font-bold mb-1">MAÇ SONUCU 2</div>
+                                <div class="text-sm font-extrabold text-white" x-text="match.odds['2'] || '-'"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Maç Bulunamadı -->
+                <div x-show="!loading && filteredMatches.length === 0" x-cloak class="text-center py-10 text-slate-500">
+                    Kriterlere uygun maç bulunamadı.
+                </div>
             </div>
+        </main>
+        
+        <!-- TOAST -->
+        <div x-show="toast.show" x-transition 
+             class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white text-black px-4 py-2 rounded-full text-xs font-bold shadow-2xl z-50"
+             x-text="toast.message">
         </div>
 
-        <!-- TABLO KARTI -->
-        <div class="bg-card rounded-xl border border-slate-700/50 shadow-2xl overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <!-- TABLO BAŞLIĞI (SORTABLE) -->
-                    <thead>
-                        <tr class="bg-slate-800/50 text-xs uppercase text-slate-400 border-b border-slate-700">
-                            <th @click="sortByColumn('date')" class="p-4 cursor-pointer hover:text-gold select-none">
-                                Tarih <span x-show="sortCol === 'date'" x-text="sortAsc ? '↑' : '↓'"></span>
-                            </th>
-                            <th @click="sortByColumn('home')" class="p-4 cursor-pointer hover:text-gold select-none">
-                                Ev Sahibi
-                            </th>
-                            <th @click="sortByColumn('away')" class="p-4 cursor-pointer hover:text-gold select-none">
-                                Deplasman
-                            </th>
-                            <th @click="sortByColumn('prob_1')" class="p-4 text-center cursor-pointer hover:text-gold select-none">
-                                MS 1
-                            </th>
-                            <th @click="sortByColumn('prob_x')" class="p-4 text-center cursor-pointer hover:text-gold select-none">
-                                MS X
-                            </th>
-                            <th @click="sortByColumn('prob_2')" class="p-4 text-center cursor-pointer hover:text-gold select-none">
-                                MS 2
-                            </th>
-                            <th @click="sortByColumn('prob_over')" class="p-4 text-center cursor-pointer hover:text-gold select-none">
-                                2.5 Üst
-                            </th>
-                        </tr>
-                    </thead>
-
-                    <!-- TABLO GÖVDESİ -->
-                    <tbody class="divide-y divide-slate-700/50 text-sm">
-                        <template x-for="match in filteredMatches" :key="match.id">
-                            <tr class="hover:bg-slate-700/30 transition duration-150 group">
-                                
-                                <!-- Tarih -->
-                                <td class="p-4 whitespace-nowrap font-mono text-xs text-slate-500" x-text="formatDate(match.date)"></td>
-                                
-                                <!-- Takımlar -->
-                                <td class="p-4 font-semibold text-slate-200 group-hover:text-white" x-text="match.home"></td>
-                                <td class="p-4 font-semibold text-slate-200 group-hover:text-white" x-text="match.away"></td>
-
-                                <!-- Oranlar (High Probability Highlight) -->
-                                <td class="p-4 text-center">
-                                    <span :class="getBadgeClass(match.prob_1)" x-text="'%' + match.prob_1.toFixed(0)"></span>
-                                </td>
-                                <td class="p-4 text-center">
-                                    <span :class="getBadgeClass(match.prob_x)" x-text="'%' + match.prob_x.toFixed(0)"></span>
-                                </td>
-                                <td class="p-4 text-center">
-                                    <span :class="getBadgeClass(match.prob_2)" x-text="'%' + match.prob_2.toFixed(0)"></span>
-                                </td>
-                                <td class="p-4 text-center border-l border-slate-700/50">
-                                    <span :class="getBadgeClass(match.prob_over)" x-text="'%' + match.prob_over.toFixed(0)"></span>
-                                </td>
-                            </tr>
-                        </template>
-
-                        <!-- Veri Yoksa -->
-                        <tr x-show="filteredMatches.length === 0" x-cloak>
-                            <td colspan="7" class="p-8 text-center text-slate-500">
-                                Aradığınız kriterlere uygun maç bulunamadı.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Footer / Kayıt Sayısı -->
-            <div class="p-4 border-t border-slate-700 bg-slate-800/30 text-xs text-slate-400 flex justify-between">
-                <span x-text="filteredMatches.length + ' kayıt listelendi'"></span>
-                <span>PredictaPRO v2.1</span>
-            </div>
-        </div>
     </div>
 
-    <!-- LOGIC SCRIPT -->
     <script>
-        function matchData() {
+        function liveApp() {
             return {
-                search: '',
-                sortCol: 'date',
-                sortAsc: false, // Tarihe göre en yeni en üstte başlasın
-                // Flask'tan gelen veriyi buraya inject ediyoruz:
-                matches: {{ matches | tojson }}, 
-                
-                get filteredMatches() {
-                    let data = this.matches;
+                matches: [],
+                loading: false,
+                filterConf: 0,
+                sortBy: 'date',
+                toast: { show: false, message: '' },
 
-                    // 1. Arama Filtresi
-                    if (this.search) {
-                        const q = this.search.toLowerCase();
-                        data = data.filter(m => 
-                            m.home.toLowerCase().includes(q) || 
-                            m.away.toLowerCase().includes(q)
-                        );
-                    }
+                async initApp() {
+                    await this.fetchData();
+                    setInterval(() => this.fetchData(true), 30000); // 30 sn oto yenileme
+                },
 
-                    // 2. Sıralama (Sorting)
-                    return data.sort((a, b) => {
-                        let valA = a[this.sortCol];
-                        let valB = b[this.sortCol];
-
-                        // Tarih sıralaması özel durum
-                        if(this.sortCol === 'date') {
-                            // Basit string karşılaştırması yerine gerekirse date parse yapılabilir
-                            // Şimdilik string sort yeterli (format YYYY-MM-DD ise)
+                async fetchData(background = false) {
+                    if (!background) this.loading = true;
+                    try {
+                        const res = await fetch('/api/matches/live');
+                        const data = await res.json();
+                        if (data.success) {
+                            this.matches = data.matches;
+                            if (background) this.showToast('Veriler güncellendi');
                         }
+                    } catch (e) {
+                        console.error(e);
+                        if (background) this.showToast('Bağlantı Hatası');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
 
-                        if (valA < valB) return this.sortAsc ? -1 : 1;
-                        if (valA > valB) return this.sortAsc ? 1 : -1;
-                        return 0;
+                get filteredMatches() {
+                    let m = this.matches.filter(match => {
+                        if (!match.prediction) return false;
+                        const p = match.prediction.probs;
+                        const maxProb = Math.max(p['1'], p['X'], p['2'], p['over']);
+                        return maxProb >= parseInt(this.filterConf);
+                    });
+
+                    return m.sort((a, b) => {
+                        if (this.sortBy === 'date') return a.date.localeCompare(b.date);
+                        if (this.sortBy === 'prob_1') return b.prediction.probs['1'] - a.prediction.probs['1'];
+                        if (this.sortBy === 'prob_over') return b.prediction.probs['over'] - a.prediction.probs['over'];
                     });
                 },
 
-                sortByColumn(col) {
-                    if (this.sortCol === col) {
-                        this.sortAsc = !this.sortAsc;
-                    } else {
-                        this.sortCol = col;
-                        this.sortAsc = true; // Sayısal sütunlar için genelde büyükten küçüğe istenir ama default true
-                        if(['prob_1','prob_x','prob_2','prob_over'].includes(col)) {
-                            this.sortAsc = false; // Oranlarda büyük en üstte olsun
-                        }
-                    }
-                },
-
-                getBadgeClass(prob) {
-                    if (prob >= 60) return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-                    if (prob >= 50) return 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20';
-                    return 'text-slate-400';
-                },
-
-                formatDate(dateStr) {
-                    // Gelen format "2024-05-20 19:00" gibiyse sadece saati veya sade tarihi gösterebilirsin
-                    return dateStr;
+                showToast(msg) {
+                    this.toast.message = msg;
+                    this.toast.show = true;
+                    setTimeout(() => this.toast.show = false, 3000);
                 }
             }
         }
