@@ -264,14 +264,24 @@ def index():
 
 @app.route('/history')
 def history_page():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row 
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM history ORDER BY id DESC LIMIT 500")
-        rows = cursor.fetchall()
-        matches_list = [dict(row) for row in rows]
+    return render_template('history.html')
 
-    return render_template('history.html', matches=matches_list)
+@app.route('/api/matches/history')
+def get_history():
+    """Geçmiş kayıtları JSON formatında döndür"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row 
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM history ORDER BY id DESC LIMIT 500")
+            rows = cursor.fetchall()
+            matches_list = [dict(row) for row in rows]
+        
+        return jsonify({"success": True, "matches": matches_list})
+    
+    except Exception as e:
+        logger.error(f"History API Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/matches/live')
 def live():
