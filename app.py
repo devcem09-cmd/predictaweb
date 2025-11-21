@@ -38,12 +38,12 @@ db = SQLAlchemy(app)
 # --- VERİTABANI MODELİ ---
 class Match(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(20), unique=True) # Maç Kodu
+    code = db.Column(db.String(20), unique=True)
     league = db.Column(db.String(50))
     home_team = db.Column(db.String(50))
     away_team = db.Column(db.String(50))
     date = db.Column(db.DateTime)
-    odds = db.Column(db.Text) # JSON formatında oranlar
+    odds = db.Column(db.Text) 
     
     # Tahminler
     prob_home = db.Column(db.Float, default=0.0)
@@ -89,23 +89,16 @@ class MatchPredictor:
             return
 
         try:
-            # SENİN CSV FORMATIN: home_team, away_team, home_score, away_score
+            # CSV OKUMA (Senin veri setine uygun)
             required_cols = ['home_team', 'away_team', 'home_score', 'away_score']
-            
-            # CSV Okuma (Sadece gerekli sütunlar)
             df = pd.read_csv(CSV_PATH, usecols=required_cols, encoding='utf-8', on_bad_lines='skip')
             
-            # Veri Tiplerini Optimize Et
             df['home_score'] = pd.to_numeric(df['home_score'], errors='coerce').fillna(0).astype('int32')
             df['away_score'] = pd.to_numeric(df['away_score'], errors='coerce').fillna(0).astype('int32')
             
-            # İstatistikleri Hesapla
             self._calculate_stats(df)
-            
-            # Fuzzy search listesi
             self.team_list = list(self.team_stats.keys())
             
-            # Belleği Temizle
             del df
             logger.info(f"✅ Veritabanı Hazır. {len(self.team_stats)} takım yüklendi.")
             
@@ -118,7 +111,6 @@ class MatchPredictor:
         self.avg_home_goals = df['home_score'].mean() or 1.5
         self.avg_away_goals = df['away_score'].mean() or 1.2
         
-        # Pandas GroupBy ile Hızlı Hesaplama
         home_stats = df.groupby('home_team')['home_score'].agg(['mean', 'count'])
         home_conceded = df.groupby('home_team')['away_score'].mean()
         
@@ -130,7 +122,6 @@ class MatchPredictor:
         for team in all_teams:
             if team not in home_stats.index or team not in away_stats.index: continue
             
-            # En az 3 maç verisi olsun
             if home_stats.loc[team, 'count'] < 3 or away_stats.loc[team, 'count'] < 3: continue
 
             self.team_stats[team] = {
@@ -143,9 +134,7 @@ class MatchPredictor:
     @lru_cache(maxsize=2048)
     def find_team_cached(self, name):
         if not name or not self.team_list: return None
-        # Basit temizlik
         clean_name = name.lower().replace('sk', '').replace('fk', '').replace('fc', '').strip()
-        # Eşleşme bul
         match = process.extractOne(clean_name, self.team_list, scorer=fuzz.token_set_ratio, score_cutoff=60)
         return match[0] if match else None
 
@@ -153,7 +142,7 @@ class MatchPredictor:
         home_db = self.find_team_cached(home)
         away_db = self.find_team_cached(away)
         
-        if not home_db or not away_db: return 0, 0, 0, 0, 0 # Veri yoksa 0 döndür
+        if not home_db or not away_db: return 0, 0, 0, 0, 0
             
         hs = self.team_stats[home_db]
         as_ = self.team_stats[away_db]
@@ -161,7 +150,6 @@ class MatchPredictor:
         h_xg = hs['att_h'] * as_['def_a'] * self.avg_home_goals
         a_xg = as_['att_a'] * hs['def_h'] * self.avg_away_goals
         
-        # Poisson
         h_probs = [poisson.pmf(i, h_xg) for i in range(6)]
         a_probs = [poisson.pmf(i, a_xg) for i in range(6)]
         
@@ -181,7 +169,123 @@ class MatchPredictor:
 
 predictor = MatchPredictor()
 
-# --- ARKA PLAN GÖREVİ (VERİ ÇEKME) ---
+# --- NESİNE PARSE MANTIĞI (DÜZELTİLDİ) ---
 def fetch_live_data():
     with app.app_context():
-        # GÜVENLİK: Token .env dosyasından okunur
+        # Token .env dosyasından okunur
+        auth_token = os.getenv("NESINE_AUTH")
+        if not auth_token:
+            logger.error("⚠️ NESINE_AUTH token yok!")
+            return
+
+        url = "https://cdnbulten.nesine.com/api/bulten/getprebultenfull"
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Authorization": auth_token,
+            "Origin": "https://www.nesine.com"
+        }
+
+        try:
+            logger.info("🔄 Nesine'den veri çekiliyor...")
+            r = requests.get(url, headers=headers, timeout=15)
+            d = r.json()
+            
+            if "sg" not in d or "EA" not in d["sg"]: return
+
+            count = 0
+            for m in d["sg"]["EA"]:
+                if m.get("GT") != 1: continue # Sadece Futbol
+
+                match_code = str(m.get("C"))
+                
+                # --- ORAN AYIKLAMA (GÜNCELLENDİ) ---
+                odds = {"ms1": "-", "msx": "-", "ms2": "-", "alt": "-", "ust": "-", "kgvar": "-", "kgyok": "-"}
+                markets = m.get("MA", [])
+                
+                for market in markets:
+                    mtid = market.get("MTID")
+                    oca = market.get("OCA", [])
+                    
+                    # MTID 1: Maç Sonucu
+                    if mtid == 1:
+                        for o in oca:
+                            if o["N"] == 1: odds["ms1"] = o["O"]
+                            elif o["N"] == 2: odds["msx"] = o["O"]
+                            elif o["N"] == 3: odds["ms2"] = o["O"]
+                    
+                    # MTID 16: KG Var/Yok (DÜZELTME BURADA)
+                    elif mtid == 16:
+                        for o in oca:
+                            if o["N"] == 1: odds["kgvar"] = o["O"] # N:1 -> Var
+                            elif o["N"] == 2: odds["kgyok"] = o["O"] # N:2 -> Yok
+                            
+                    # MTID 23: 2.5 Alt/Üst (STANDART IDDAA ID)
+                    elif mtid == 23:
+                         for o in oca:
+                             if o["N"] == 1: odds["ust"] = o["O"] # N:1 -> Üst
+                             elif o["N"] == 2: odds["alt"] = o["O"] # N:2 -> Alt
+
+                if odds["ms1"] == "-": continue
+
+                # Tahmin
+                p1, px, p2, pover, pbtts = predictor.predict(m.get("HN"), m.get("AN"))
+
+                # DB Kayıt
+                existing = Match.query.filter_by(code=match_code).first()
+                
+                if not existing:
+                    new_match = Match(
+                        code=match_code,
+                        league=m.get("LN"),
+                        home_team=m.get("HN"),
+                        away_team=m.get("AN"),
+                        date=datetime.strptime(f"{m.get('D')} {m.get('T')}", "%d.%m.%Y %H:%M"),
+                        odds=json.dumps(odds),
+                        prob_home=p1, prob_draw=px, prob_away=p2,
+                        prob_over_25=pover, prob_btts=pbtts
+                    )
+                    db.session.add(new_match)
+                    count += 1
+                else:
+                    existing.odds = json.dumps(odds)
+            
+            db.session.commit()
+            logger.info(f"✅ Veri Güncellendi. {count} yeni maç eklendi.")
+
+        except Exception as e:
+            logger.error(f"❌ API Hatası: {e}")
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=fetch_live_data, trigger="interval", minutes=5)
+scheduler.start()
+atexit.register(lambda: scheduler.shutdown())
+
+@app.route('/')
+def index(): return render_template('index.html')
+
+@app.route('/api/matches')
+def get_matches():
+    sort_by = request.args.get('sort_by', 'default')
+    cutoff = datetime.now() - timedelta(hours=2)
+    matches = Match.query.filter(Match.date >= cutoff).all()
+    data = [m.to_dict() for m in matches]
+    
+    if sort_by == 'prob_high':
+        data.sort(key=lambda x: max(x['probs']['1'], x['probs']['X'], x['probs']['2']), reverse=True)
+    elif sort_by == 'prob_over':
+        data.sort(key=lambda x: x['probs']['over'], reverse=True)
+    else:
+        data.sort(key=lambda x: x['date'])
+
+    return jsonify(data)
+
+@app.route('/health')
+def health(): return jsonify({"status": "ok"}), 200
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+        try: fetch_live_data()
+        except: pass
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
