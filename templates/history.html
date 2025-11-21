@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Predicta PRO - Geçmiş</title>
+    <title>PredictaPRO - Geçmiş</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -26,66 +26,68 @@
     </script>
     <style>[x-cloak] { display: none !important; }</style>
 </head>
-<body class="bg-dark text-slate-300 antialiased p-4 md:p-8">
+<body class="bg-dark text-slate-300 antialiased">
 
-    <div x-data="historyApp()" class="max-w-5xl mx-auto">
+    <div x-data="historyApp()" x-init="loadHistory()" class="max-w-5xl mx-auto p-4 md:p-8">
         
-        <!-- HEADER & NAV -->
+        <!-- HEADER -->
         <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-white/10 pb-6">
             <div>
-                <h1 class="text-2xl font-bold text-white tracking-tight">
-                    Predicta<span class="text-gold">PRO</span> <span class="text-slate-500 font-medium">Geçmiş</span>
+                <h1 class="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                    PREDICTA<span class="text-gold">PRO</span> <span class="text-slate-400 font-medium text-2xl">Geçmiş</span>
                 </h1>
-                <p class="text-slate-400 text-xs mt-1">Sistem tarafından yapılan son 500 analiz.</p>
+                <p class="text-slate-400 text-sm mt-2">Son 500 analiz kaydı</p>
             </div>
             
-            <div class="flex gap-3 w-full md:w-auto">
+            <div class="flex gap-2 w-full md:w-auto">
                 <a href="/" class="px-4 py-2 text-sm font-bold bg-card hover:bg-slate-700 border border-white/10 rounded-lg transition text-white text-center flex-1 md:flex-none">
                     📡 Canlı Akışa Dön
                 </a>
             </div>
         </div>
 
-        <!-- SEARCH BAR -->
+        <!-- ARAMA -->
         <div class="relative mb-6">
             <input x-model="search" type="text" placeholder="Takım adı ara..." 
-                   class="w-full bg-card border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-gold transition shadow-lg">
-            <svg class="w-4 h-4 text-slate-500 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                   class="w-full bg-card border border-white/10 rounded-lg py-3 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-gold transition">
+            <svg class="w-4 h-4 text-slate-500 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
         </div>
 
         <!-- TABLO -->
-        <div class="bg-card rounded-xl border border-white/10 shadow-xl overflow-hidden">
+        <div class="bg-card border border-white/10 rounded-xl overflow-hidden shadow-lg">
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
+                <table class="w-full text-left text-sm">
                     <thead>
-                        <tr class="bg-slate-800/50 text-[10px] uppercase text-slate-400 border-b border-white/5">
-                            <th @click="sortByCol('date')" class="p-4 cursor-pointer hover:text-gold">Tarih</th>
-                            <th @click="sortByCol('home')" class="p-4 cursor-pointer hover:text-gold">Ev Sahibi</th>
-                            <th @click="sortByCol('away')" class="p-4 cursor-pointer hover:text-gold">Deplasman</th>
-                            <th @click="sortByCol('prob_1')" class="p-4 text-center cursor-pointer hover:text-gold">MS 1</th>
-                            <th @click="sortByCol('prob_x')" class="p-4 text-center cursor-pointer hover:text-gold">Beraberlik</th>
-                            <th @click="sortByCol('prob_2')" class="p-4 text-center cursor-pointer hover:text-gold">MS 2</th>
-                            <th @click="sortByCol('prob_over')" class="p-4 text-center cursor-pointer hover:text-gold border-l border-white/5">2.5 ÜST</th>
+                        <tr class="bg-slate-800/50 border-b border-white/5 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            <th @click="sortByCol('date')" class="p-4 cursor-pointer hover:text-gold transition">Tarih</th>
+                            <th @click="sortByCol('home')" class="p-4 cursor-pointer hover:text-gold transition">Ev Sahibi</th>
+                            <th @click="sortByCol('away')" class="p-4 cursor-pointer hover:text-gold transition">Deplasman</th>
+                            <th @click="sortByCol('prob_1')" class="p-4 text-center cursor-pointer hover:text-gold transition">MS 1</th>
+                            <th @click="sortByCol('prob_x')" class="p-4 text-center cursor-pointer hover:text-gold transition">Beraberlik</th>
+                            <th @click="sortByCol('prob_2')" class="p-4 text-center cursor-pointer hover:text-gold transition">MS 2</th>
+                            <th @click="sortByCol('prob_over')" class="p-4 text-center cursor-pointer hover:text-gold transition border-l border-white/5">2.5 ÜST</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-white/5 text-sm">
+                    <tbody class="divide-y divide-white/5">
                         <template x-for="match in filteredMatches" :key="match.id">
                             <tr class="hover:bg-white/5 transition duration-150">
-                                <td class="p-4 whitespace-nowrap font-mono text-xs text-slate-500" x-text="match.date"></td>
+                                <td class="p-4 font-mono text-xs text-slate-500 whitespace-nowrap" x-text="match.date"></td>
                                 <td class="p-4 font-semibold text-white" x-text="match.home"></td>
                                 <td class="p-4 font-semibold text-white" x-text="match.away"></td>
                                 
                                 <td class="p-4 text-center">
-                                    <span :class="getBadge(match.prob_1)" x-text="'%' + Math.round(match.prob_1)"></span>
+                                    <span :class="getBadge(match.prob_1)" class="px-2 py-1 rounded-lg text-xs font-bold" x-text="'%' + Math.round(match.prob_1)"></span>
                                 </td>
                                 <td class="p-4 text-center">
-                                    <span :class="getBadge(match.prob_x)" x-text="'%' + Math.round(match.prob_x)"></span>
+                                    <span :class="getBadge(match.prob_x)" class="px-2 py-1 rounded-lg text-xs font-bold" x-text="'%' + Math.round(match.prob_x)"></span>
                                 </td>
                                 <td class="p-4 text-center">
-                                    <span :class="getBadge(match.prob_2)" x-text="'%' + Math.round(match.prob_2)"></span>
+                                    <span :class="getBadge(match.prob_2)" class="px-2 py-1 rounded-lg text-xs font-bold" x-text="'%' + Math.round(match.prob_2)"></span>
                                 </td>
                                 <td class="p-4 text-center border-l border-white/5">
-                                    <span :class="getBadge(match.prob_over)" x-text="'%' + Math.round(match.prob_over)"></span>
+                                    <span :class="getBadge(match.prob_over)" class="px-2 py-1 rounded-lg text-xs font-bold" x-text="'%' + Math.round(match.prob_over)"></span>
                                 </td>
                             </tr>
                         </template>
@@ -95,8 +97,8 @@
                     </tbody>
                 </table>
             </div>
-            <div class="p-3 bg-slate-800/30 text-center text-xs text-slate-500 border-t border-white/5">
-                <span x-text="filteredMatches.length"></span> kayıt gösteriliyor
+            <div class="p-4 bg-slate-800/30 text-center text-xs text-slate-500 border-t border-white/5">
+                <span x-text="filteredMatches.length"></span> / <span x-text="matches.length"></span> kayıt gösteriliyor
             </div>
         </div>
     </div>
@@ -105,10 +107,19 @@
         function historyApp() {
             return {
                 search: '',
-                sortCol: 'id', // Default sıralama
+                sortCol: 'date',
                 sortAsc: false,
-                // Flask'tan gelen veriyi alıyoruz:
-                matches: {{ matches | tojson }},
+                matches: [],
+
+                async loadHistory() {
+                    try {
+                        const response = await fetch("/api/matches/history");
+                        const data = await response.json();
+                        this.matches = data.matches || [];
+                    } catch (e) {
+                        console.error('Geçmiş yüklenemedi:', e);
+                    }
+                },
 
                 get filteredMatches() {
                     let data = this.matches;
@@ -124,6 +135,12 @@
                     return data.sort((a, b) => {
                         let valA = a[this.sortCol];
                         let valB = b[this.sortCol];
+                        
+                        if (typeof valA === 'string') {
+                            valA = valA.toLowerCase();
+                            valB = valB.toLowerCase();
+                        }
+                        
                         if (valA < valB) return this.sortAsc ? -1 : 1;
                         if (valA > valB) return this.sortAsc ? 1 : -1;
                         return 0;
@@ -131,17 +148,18 @@
                 },
 
                 sortByCol(col) {
-                    if (this.sortCol === col) this.sortAsc = !this.sortAsc;
-                    else {
+                    if (this.sortCol === col) {
+                        this.sortAsc = !this.sortAsc;
+                    } else {
                         this.sortCol = col;
-                        this.sortAsc = false; // Genelde yüksek oran veya yeni tarih en üstte istenir
+                        this.sortAsc = false;
                     }
                 },
 
                 getBadge(val) {
-                    if (val >= 60) return 'text-emerald-400 font-bold';
-                    if (val >= 50) return 'text-blue-400 font-medium';
-                    return 'text-slate-500';
+                    if (val >= 60) return 'bg-emerald-500/20 text-emerald-400';
+                    if (val >= 50) return 'bg-blue-500/20 text-blue-400';
+                    return 'bg-slate-700/50 text-slate-400';
                 }
             }
         }
