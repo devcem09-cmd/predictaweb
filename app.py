@@ -240,42 +240,83 @@ def health():
 def get_prematch(bet_type):
     """Belirli bahis türü için top 10 maçı döndür"""
     try:
-        r = requests.get(NESINE_URL, headers=NESINE_HEADERS, timeout=10)
+        logger.info(f"🔍 Prematch talebi alındı: {bet_type}")
+        
+        r = requests.get(NESINE_URL, headers=NESINE_HEADERS, timeout=15)
+        logger.info(f"📡 Nesine API Status: {r.status_code}")
+        
+        if r.status_code != 200:
+            return jsonify({
+                "success": False, 
+                "error": f"Nesine API hatası: {r.status_code}",
+                "matches": []
+            }), 500
+        
         d = r.json()
         matches = []
         
-        if "sg" in d and "EA" in d["sg"]:
-            for m in d["sg"]["EA"]:
-                if m.get("GT") != 1: continue
-                
-                home = m.get("HN")
-                away = m.get("AN")
-                
-                prediction = predictor.predict_all(home, away)
-                if not prediction: continue
-                
-                matches.append({
-                    "home": home,
-                    "away": away,
-                    "date": f"{m.get('D')} {m.get('T')}",
-                    "league": m.get("LN") or "Lig",
-                    "prediction": prediction["predictions"].get(bet_type, {})
-                })
+        if "sg" not in d or "EA" not in d["sg"]:
+            logger.warning("⚠️ Nesine'den maç verisi gelmedi")
+            return jsonify({
+                "success": False,
+                "error": "Nesine'den veri alınamadı",
+                "matches": []
+            }), 500
+        
+        total_matches = len(d["sg"]["EA"])
+        logger.info(f"📊 Toplam {total_matches} maç bulundu")
+        
+        for m in d["sg"]["EA"]:
+            if m.get("GT") != 1: continue
+            
+            home = m.get("HN")
+            away = m.get("AN")
+            
+            if not home or not away:
+                continue
+            
+            prediction = predictor.predict_all(home, away)
+            if not prediction: 
+                logger.debug(f"⚠️ Tahmin yapılamadı: {home} vs {away}")
+                continue
+            
+            matches.append({
+                "home": home,
+                "away": away,
+                "date": f"{m.get('D', '')} {m.get('T', '')}",
+                "league": m.get("LN") or "Lig",
+                "prediction": prediction["predictions"].get(bet_type, {})
+            })
+        
+        logger.info(f"✅ {len(matches)} maç tahmin edildi")
+        
+        if not matches:
+            return jsonify({
+                "success": False,
+                "error": "Tahmin edilebilir maç bulunamadı",
+                "matches": []
+            })
         
         # İlgili bahis türüne göre sırala
-        if bet_type in matches[0]["prediction"]:
-            # Tüm seçeneklerin maksimum olasılığına göre sırala
+        if matches and bet_type in matches[0]["prediction"]:
             for match in matches:
-                match["max_prob"] = max(match["prediction"].values())
+                probs = list(match["prediction"].values())
+                match["max_prob"] = max(probs) if probs else 0
             
             matches.sort(key=lambda x: x["max_prob"], reverse=True)
             matches = matches[:10]
         
         return jsonify({"success": True, "count": len(matches), "matches": matches})
         
+    except requests.exceptions.Timeout:
+        logger.error("⏱️ Nesine API timeout")
+        return jsonify({"success": False, "error": "API zaman aşımı", "matches": []}), 504
+    except requests.exceptions.RequestException as e:
+        logger.error(f"🌐 Bağlantı hatası: {e}")
+        return jsonify({"success": False, "error": "Bağlantı hatası", "matches": []}), 503
     except Exception as e:
-        logger.error(f"API Error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error(f"❌ Beklenmeyen hata: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e), "matches": []}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
