@@ -249,5 +249,9 @@ with app.app_context():
     # İlk veriyi çek (Sunucu başlarken)
     fetch_and_update_data()
 
+# ... (kodun geri kalanı aynı) ...
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Koyeb dinamik port atar, onu yakalamalıyız
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host='0.0.0.0', port=port)
