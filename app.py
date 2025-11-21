@@ -222,7 +222,15 @@ predictor = MatchPredictor()
 
 @app.route('/')
 def index():
-    return "Predicta PRO API Online. Use /prematch/<type>"
+    return render_template('index.html')
+
+@app.route('/prematch')
+def prematch():
+    return render_template('prematch.html')
+
+@app.route('/prematch_bahisler')
+def prematch_bahisler():
+    return render_template('prematch_bahisler.html')
 
 @app.route('/health')
 def health():
