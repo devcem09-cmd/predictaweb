@@ -1,7 +1,7 @@
 import os
 import logging
 import time
-from functools import lru_cache
+from functools import lru_cache # <--- YENİ: Performans için
 import pandas as pd
 import numpy as np
 from flask import Flask, jsonify, render_template
@@ -17,6 +17,7 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+# APK ve Web'den gelen isteklere izin ver
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -32,7 +33,7 @@ NESINE_URL = "https://cdnbulten.nesine.com/api/bulten/getprebultenfull"
 class MatchPredictor:
     def __init__(self):
         self.team_stats = {}
-        self.team_list = []
+        self.team_list = [] # Fuzzy search için liste
         self.avg_home_goals = 1.5
         self.avg_away_goals = 1.2
         self.load_database()
@@ -45,13 +46,23 @@ class MatchPredictor:
             return
 
         try:
+            # Sadece gerekli sütunları oku
             df = pd.read_csv(CSV_PATH, usecols=['HomeTeam', 'AwayTeam', 'FTHG', 'FTAG'], encoding='utf-8', on_bad_lines='skip')
+            
+            # İsim standardizasyonu
             df.columns = ['home_team', 'away_team', 'home_score', 'away_score']
+            
+            # Veri tiplerini küçült (RAM Optimizasyonu)
             df['home_score'] = pd.to_numeric(df['home_score'], errors='coerce').fillna(0).astype('int32')
             df['away_score'] = pd.to_numeric(df['away_score'], errors='coerce').fillna(0).astype('int32')
             
+            # İstatistikleri hesapla
             self._calculate_stats(df)
+            
+            # Listeyi fuzzy search için hazırla
             self.team_list = list(self.team_stats.keys())
+            
+            # DataFrame'i bellekten sil
             del df
             logger.info(f"✅ Veritabanı hazır. {len(self.team_stats)} takım yüklendi.")
             
@@ -64,13 +75,18 @@ class MatchPredictor:
         self.avg_home_goals = df['home_score'].mean() or 1.5
         self.avg_away_goals = df['away_score'].mean() or 1.2
         
+        # Takımları grupla ve ortalamaları al (Pandas Vectorization - Çok daha hızlı)
         home_stats = df.groupby('home_team')['home_score'].agg(['mean', 'count'])
         home_conceded = df.groupby('home_team')['away_score'].mean()
+        
         away_stats = df.groupby('away_team')['away_score'].agg(['mean', 'count'])
         away_conceded = df.groupby('away_team')['home_score'].mean()
+        
+        # Tüm takımları birleştir
         all_teams = set(home_stats.index) | set(away_stats.index)
         
         for team in all_teams:
+            # En az 3 maç verisi gerekli
             h_count = home_stats.loc[team, 'count'] if team in home_stats.index else 0
             a_count = away_stats.loc[team, 'count'] if team in away_stats.index else 0
             
@@ -78,6 +94,7 @@ class MatchPredictor:
 
             att_h = home_stats.loc[team, 'mean'] / self.avg_home_goals
             def_h = home_conceded.loc[team] / self.avg_away_goals
+            
             att_a = away_stats.loc[team, 'mean'] / self.avg_away_goals
             def_a = away_conceded.loc[team] / self.avg_home_goals
             
@@ -86,20 +103,29 @@ class MatchPredictor:
                 'att_a': att_a, 'def_a': def_a
             }
 
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=2048) # <--- CACHE: Aynı ismi tekrar aramaz
     def find_team_cached(self, name):
         if not name or not self.team_stats: return None
+        
+        # Basit temizlik
         clean_name = name.lower().replace('sk', '').replace('fk', '').replace('fc', '').strip()
-        match = process.extractOne(clean_name, self.team_list, scorer=fuzz.token_set_ratio, score_cutoff=65)
+        
+        # Rapidfuzz ile en iyi eşleşme
+        match = process.extractOne(
+            clean_name, 
+            self.team_list, 
+            scorer=fuzz.token_set_ratio, 
+            score_cutoff=65
+        )
+        
         return match[0] if match else None
 
-    def predict_all(self, home, away):
-        """Tüm bahis türleri için tahmin hesapla"""
+    def predict(self, home, away):
+        # Cache'lenmiş fonksiyonu çağır
         home_db = self.find_team_cached(home)
         away_db = self.find_team_cached(away)
         
-        if not home_db or not away_db: 
-            return None
+        if not home_db or not away_db: return None
             
         hs = self.team_stats[home_db]
         as_ = self.team_stats[away_db]
@@ -108,216 +134,102 @@ class MatchPredictor:
         h_xg = hs['att_h'] * as_['def_a'] * self.avg_home_goals
         a_xg = as_['att_a'] * hs['def_h'] * self.avg_away_goals
         
-        # İlk yarı xG (yaklaşık %45-50 oranında)
-        h_xg_ht = h_xg * 0.47
-        a_xg_ht = a_xg * 0.47
+        # Poisson Olasılıkları
+        h_probs = [poisson.pmf(i, h_xg) for i in range(6)]
+        a_probs = [poisson.pmf(i, a_xg) for i in range(6)]
         
-        # Poisson Olasılıkları (0-7 gol arası)
-        h_probs = [poisson.pmf(i, h_xg) for i in range(8)]
-        a_probs = [poisson.pmf(i, a_xg) for i in range(8)]
-        h_probs_ht = [poisson.pmf(i, h_xg_ht) for i in range(5)]
-        a_probs_ht = [poisson.pmf(i, a_xg_ht) for i in range(5)]
-        
-        result = {
-            "home": home,
-            "away": away,
-            "xg": {"home": round(h_xg, 2), "away": round(a_xg, 2)},
-            "predictions": {}
-        }
-        
-        # --- MAÇ SONUCU (MS) ---
         prob_1, prob_x, prob_2 = 0, 0, 0
-        for h in range(8):
-            for a in range(8):
+        prob_over = 0
+        prob_btts_yes = 0
+        
+        for h in range(6):
+            for a in range(6):
                 p = h_probs[h] * a_probs[a]
                 if h > a: prob_1 += p
                 elif h == a: prob_x += p
                 else: prob_2 += p
-        
-        result["predictions"]["ms"] = {
-            "1": round(prob_1 * 100, 1),
-            "0": round(prob_x * 100, 1),
-            "2": round(prob_2 * 100, 1)
+                if (h + a) > 2.5: prob_over += p
+                if h > 0 and a > 0: prob_btts_yes += p # Daha hassas BTTS hesabı
+
+        return {
+            "stats": {"home_xg": round(h_xg, 2), "away_xg": round(a_xg, 2)},
+            "probs": {
+                "1": round(prob_1 * 100, 1),
+                "X": round(prob_x * 100, 1),
+                "2": round(prob_2 * 100, 1),
+                "over": round(prob_over * 100, 1),
+                "under": round((1 - prob_over) * 100, 1),
+                "btts_yes": round(prob_btts_yes * 100, 1),
+                "btts_no": round((1 - prob_btts_yes) * 100, 1)
+            }
         }
-        
-        # --- İLK YARI SONUCU (IY) ---
-        iy_1, iy_0, iy_2 = 0, 0, 0
-        for h in range(5):
-            for a in range(5):
-                p = h_probs_ht[h] * a_probs_ht[a]
-                if h > a: iy_1 += p
-                elif h == a: iy_0 += p
-                else: iy_2 += p
-        
-        result["predictions"]["iy"] = {
-            "İY 1": round(iy_1 * 100, 1),
-            "İY 0": round(iy_0 * 100, 1),
-            "İY 2": round(iy_2 * 100, 1)
-        }
-        
-        # --- İY/MS (9 kombinasyon) ---
-        iyms_probs = {}
-        ht_results = {"1": iy_1, "0": iy_0, "2": iy_2}
-        ft_results = {"1": prob_1, "0": prob_x, "2": prob_2}
-        
-        for ht in ["0", "1", "2"]:
-            for ft in ["0", "1", "2"]:
-                key = f"{ht}/{ft}"
-                iyms_probs[key] = round(ht_results[ht] * ft_results[ft] * 100, 1)
-        
-        result["predictions"]["iyms"] = iyms_probs
-        
-        # --- HANDİKAP ---
-        # Favori takımı belirle (xG'ye göre)
-        is_home_fav = h_xg > a_xg
-        handicap = {}
-        
-        for hnd in [1, 2, 3]:
-            if is_home_fav:
-                # Ev sahibi favori
-                prob_win = sum(h_probs[h] * a_probs[a] for h in range(8) for a in range(8) if h - a > hnd)
-                handicap[f"Ev -{hnd}"] = round(prob_win * 100, 1)
-            else:
-                # Deplasman favori
-                prob_win = sum(h_probs[h] * a_probs[a] for h in range(8) for a in range(8) if a - h > hnd)
-                handicap[f"Dep -{hnd}"] = round(prob_win * 100, 1)
-        
-        result["predictions"]["handikap"] = handicap
-        
-        # --- KARŞILIKLI GOL (KG) ---
-        btts = sum(h_probs[h] * a_probs[a] for h in range(1, 8) for a in range(1, 8))
-        btts_ht = sum(h_probs_ht[h] * a_probs_ht[a] for h in range(1, 5) for a in range(1, 5))
-        
-        result["predictions"]["kg"] = {
-            "KGV": round(btts * 100, 1),
-            "İY KGV": round(btts_ht * 100, 1),
-            "2Y KGV": round((btts - btts_ht) * 100, 1) if btts > btts_ht else 0
-        }
-        
-        # --- ALT/ÜST (AU) ---
-        au = {}
-        for threshold in [1.5, 2.5, 3.5, 4.5]:
-            over = sum(h_probs[h] * a_probs[a] for h in range(8) for a in range(8) if h + a > threshold)
-            au[f"{threshold} Üst"] = round(over * 100, 1)
-        
-        # İlk yarı alt/üst
-        for threshold in [1.5, 2.5]:
-            over_ht = sum(h_probs_ht[h] * a_probs_ht[a] for h in range(5) for a in range(5) if h + a > threshold)
-            au[f"İY {threshold} Üst"] = round(over_ht * 100, 1)
-        
-        result["predictions"]["au"] = au
-        
-        # --- TOPLAM GOL ---
-        tg = {}
-        tg["0-1"] = round(sum(h_probs[h] * a_probs[a] for h in range(8) for a in range(8) if h + a <= 1) * 100, 1)
-        tg["2-3"] = round(sum(h_probs[h] * a_probs[a] for h in range(8) for a in range(8) if 2 <= h + a <= 3) * 100, 1)
-        tg["4-5"] = round(sum(h_probs[h] * a_probs[a] for h in range(8) for a in range(8) if 4 <= h + a <= 5) * 100, 1)
-        tg["+6"] = round(sum(h_probs[h] * a_probs[a] for h in range(8) for a in range(8) if h + a >= 6) * 100, 1)
-        
-        result["predictions"]["toplamgol"] = tg
-        
-        return result
 
 predictor = MatchPredictor()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
-
-@app.route('/prematch')
-def prematch():
-    return render_template('prematch.html')
-
-@app.route('/prematch_bahisler')
-def prematch_bahisler():
-    return render_template('prematch_bahisler.html')
+    return "Predicta PRO API Online. Use /api/matches/live"
 
 @app.route('/health')
 def health():
+    """Uptime Robot gibi servisler buraya ping atıp sunucuyu uyanık tutar."""
     return jsonify({"status": "ok", "timestamp": time.time()})
 
-@app.route('/prematch/<bet_type>')
-def get_prematch(bet_type):
-    """Belirli bahis türü için top 10 maçı döndür"""
+@app.route('/api/matches/live')
+def live():
     try:
-        logger.info(f"🔍 Prematch talebi alındı: {bet_type}")
-        
-        r = requests.get(NESINE_URL, headers=NESINE_HEADERS, timeout=15)
-        logger.info(f"📡 Nesine API Status: {r.status_code}")
-        
-        if r.status_code != 200:
-            return jsonify({
-                "success": False, 
-                "error": f"Nesine API hatası: {r.status_code}",
-                "matches": []
-            }), 500
-        
+        r = requests.get(NESINE_URL, headers=NESINE_HEADERS, timeout=10)
         d = r.json()
         matches = []
         
-        if "sg" not in d or "EA" not in d["sg"]:
-            logger.warning("⚠️ Nesine'den maç verisi gelmedi")
-            return jsonify({
-                "success": False,
-                "error": "Nesine'den veri alınamadı",
-                "matches": []
-            }), 500
-        
-        total_matches = len(d["sg"]["EA"])
-        logger.info(f"📊 Toplam {total_matches} maç bulundu")
-        
-        for m in d["sg"]["EA"]:
-            if m.get("GT") != 1: continue
-            
-            home = m.get("HN")
-            away = m.get("AN")
-            
-            if not home or not away:
-                continue
-            
-            prediction = predictor.predict_all(home, away)
-            if not prediction: 
-                logger.debug(f"⚠️ Tahmin yapılamadı: {home} vs {away}")
-                continue
-            
-            matches.append({
-                "home": home,
-                "away": away,
-                "date": f"{m.get('D', '')} {m.get('T', '')}",
-                "league": m.get("LN") or "Lig",
-                "prediction": prediction["predictions"].get(bet_type, {})
-            })
-        
-        logger.info(f"✅ {len(matches)} maç tahmin edildi")
-        
-        if not matches:
-            return jsonify({
-                "success": False,
-                "error": "Tahmin edilebilir maç bulunamadı",
-                "matches": []
-            })
-        
-        # İlgili bahis türüne göre sırala
-        if matches and bet_type in matches[0]["prediction"]:
-            for match in matches:
-                probs = list(match["prediction"].values())
-                match["max_prob"] = max(probs) if probs else 0
-            
-            matches.sort(key=lambda x: x["max_prob"], reverse=True)
-            matches = matches[:10]
+        if "sg" in d and "EA" in d["sg"]:
+            for m in d["sg"]["EA"]:
+                # Sadece Futbol (GT=1) ve henüz başlamamış veya canlı olmayan maçlar
+                if m.get("GT") != 1: continue 
+                
+                # Oranları Çek
+                odds = {}
+                markets = m.get("MA", [])
+                
+                # Hızlı erişim için map oluştur
+                # Bu kısım kodun okunabilirliğini artırır
+                for market in markets:
+                    mtid = market.get("MTID")
+                    oca = market.get("OCA", [])
+                    
+                    if mtid == 1: # MS
+                        for o in oca:
+                            if o["N"] == 1: odds["1"] = o["O"]
+                            elif o["N"] == 2: odds["X"] = o["O"]
+                            elif o["N"] == 3: odds["2"] = o["O"]
+                    
+                    elif mtid == 450: # 2.5 Alt/Üst (ID değişebilir, kontrol et)
+                         if "Over/Under +2.5" not in odds: odds["Over/Under +2.5"] = {}
+                         for o in oca:
+                             if o["N"] == 1: odds["Over/Under +2.5"]["Over +2.5"] = o["O"]
+                             if o["N"] == 2: odds["Over/Under +2.5"]["Under +2.5"] = o["O"]
+
+                # Eğer MS oranları yoksa (bazen sadece özel etkinlikler olur) maçı geç
+                if "1" not in odds: continue
+
+                # Maç Verisi Oluştur
+                match_data = {
+                    "home": m.get("HN"),
+                    "away": m.get("AN"),
+                    "date": f"{m.get('D')} {m.get('T')}",
+                    "league": m.get("LN") or "Lig",
+                    "odds": odds,
+                    "prediction": predictor.predict(m.get("HN"), m.get("AN"))
+                }
+                matches.append(match_data)
         
         return jsonify({"success": True, "count": len(matches), "matches": matches})
-        
-    except requests.exceptions.Timeout:
-        logger.error("⏱️ Nesine API timeout")
-        return jsonify({"success": False, "error": "API zaman aşımı", "matches": []}), 504
-    except requests.exceptions.RequestException as e:
-        logger.error(f"🌐 Bağlantı hatası: {e}")
-        return jsonify({"success": False, "error": "Bağlantı hatası", "matches": []}), 503
+
     except Exception as e:
-        logger.error(f"❌ Beklenmeyen hata: {e}", exc_info=True)
-        return jsonify({"success": False, "error": str(e), "matches": []}), 500
+        logger.error(f"API Error: {e}")
+        return jsonify({"success": False, "error": "Veri alınamadı"}), 500
 
 if __name__ == '__main__':
+    # Render/Heroku için PORT ayarı
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
