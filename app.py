@@ -37,7 +37,7 @@ app.config['SECRET_KEY'] = 'gizli_key_change_this'
 CORS(app)
 
 # WebSocket Başlatma
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', ping_timeout=60)
 
 # Veritabanı
 INSTANCE_DIR = os.path.join(BASE_DIR, 'instance')
@@ -305,3 +305,4 @@ def handle_connect():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     socketio.run(app, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+
