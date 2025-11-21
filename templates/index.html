@@ -9,7 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- İkonlar için FontAwesome (Hızlı çözüm) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    <!-- Flask static klasöründen logo çekme -->
+    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Predicta Pro Logo" class="h-10 w-auto">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0b1121; color: #e2e8f0; }
         /* Görseldeki Scrollbar Gizleme */
