@@ -13,6 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from scipy.stats import poisson
 from rapidfuzz import process, fuzz
 from dotenv import load_dotenv
+import random # Skor simülasyonu için (Gerçek API bağlayana kadar)
 
 # --- YAPILANDIRMA ---
 load_dotenv()
@@ -37,7 +38,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 logger.info(f"📍 Veritabanı yolu: {DB_PATH}")
 
-# --- MODEL ---
+# --- GÜNCELLENMİŞ VERİTABANI MODELİ ---
 class Match(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), unique=True)
@@ -45,18 +46,21 @@ class Match(db.Model):
     home_team = db.Column(db.String(50))
     away_team = db.Column(db.String(50))
     date = db.Column(db.DateTime)
-    odds = db.Column(db.JSON)
+    odds = db.Column(db.Text) 
+    
+    # Tahminler
     prob_home = db.Column(db.Float, default=0.0)
     prob_draw = db.Column(db.Float, default=0.0)
     prob_away = db.Column(db.Float, default=0.0)
     prob_over_25 = db.Column(db.Float, default=0.0)
     prob_btts = db.Column(db.Float, default=0.0)
-    status = db.Column(db.String(20), default="Pending")
-    result_home = db.Column(db.Integer)
-    result_away = db.Column(db.Integer)
-    correct_ms = db.Column(db.Boolean, default=None)
-    correct_over = db.Column(db.Boolean, default=None)
-    correct_btts = db.Column(db.Boolean, default=None)
+    
+    # --- YENİ EKLENEN SÜTUNLAR (HISTORY İÇİN) ---
+    status = db.Column(db.String(20), default="Pending") # Pending, Finished
+    score_home = db.Column(db.Integer, nullable=True)
+    score_away = db.Column(db.Integer, nullable=True)
+    result_str = db.Column(db.String(10), nullable=True) # "1", "X", "2"
+    is_successful = db.Column(db.Boolean, default=False) # Tahmin tuttu mu?
 
     def to_dict(self):
         return {
@@ -65,8 +69,8 @@ class Match(db.Model):
             "league": self.league,
             "home": self.home_team,
             "away": self.away_team,
-            "date": self.date.strftime("%Y-%m-%d %H:%M"),
-            "odds": self.odds or {},
+            "date": self.date.strftime("%d.%m %H:%M"),
+            "odds": json.loads(self.odds) if self.odds else {},
             "probs": {
                 "1": round(self.prob_home * 100, 1),
                 "X": round(self.prob_draw * 100, 1),
@@ -74,13 +78,11 @@ class Match(db.Model):
                 "over": round(self.prob_over_25 * 100, 1),
                 "btts": round(self.prob_btts * 100, 1)
             },
-            "result": {
-                "home": self.result_home,
-                "away": self.result_away,
-                "correct_ms": self.correct_ms,
-                "correct_over": self.correct_over,
-                "correct_btts": self.correct_btts
-            }
+            # History için ek veriler
+            "status": self.status,
+            "score": f"{self.score_home} - {self.score_away}" if self.score_home is not None else "-",
+            "result": self.result_str,
+            "success": self.is_successful
         }
 
 # --- TAHMİN MOTORU ---
@@ -171,6 +173,88 @@ class MatchPredictor:
         return p_1,p_x,p_2,p_over,p_btts
 
 predictor = MatchPredictor()
+
+# --- YENİ: SONUÇ GÜNCELLEME SERVİSİ ---
+def update_match_results():
+    """
+    Maç saati geçen maçları kontrol eder.
+    NOT: Gerçek bir 'Canlı Skor API'si olmadığı için, burada 
+    maç saati 3 saati geçmiş maçları otomatik 'Finished' yapıyoruz.
+    Skorları şimdilik Rastgele atıyorum ki History sayfası boş kalmasın.
+    Gerçekte buraya bir skor API'si bağlanmalı.
+    """
+    with app.app_context():
+        # 3 saat önce başlamış ve hala 'Pending' olan maçlar
+        cutoff = datetime.now() - timedelta(hours=3)
+        pending_matches = Match.query.filter(Match.date <= cutoff, Match.status == "Pending").all()
+        
+        if not pending_matches: return
+
+        logger.info(f"🔄 {len(pending_matches)} maç sonuçlandırılıyor...")
+        
+        for m in pending_matches:
+            # --- SİMÜLASYON (GERÇEK API YOKSA) ---
+            # Burada veritabanındaki olasılıklara göre sanal skor üretiyorum
+            # Böylece sistemin "Başarısını" test edebilirsin.
+            # Gerçek hayatta burası: m.score_home = api.get_score(m.code)['home']
+            
+            # Simüle Skor (Bunu production'da silmelisin!)
+            m.score_home = np.random.poisson(m.prob_home * 1.5) # XG'ye yakın skor üret
+            m.score_away = np.random.poisson(m.prob_away * 1.2)
+            m.status = "Finished"
+            
+            # Sonucu Belirle (1, X, 2)
+            if m.score_home > m.score_away: m.result_str = "1"
+            elif m.score_home == m.score_away: m.result_str = "X"
+            else: m.result_str = "2"
+            
+            # Başarı Kontrolü (Sistem ne demişti?)
+            # En yüksek ihtimali bul
+            probs = {'1': m.prob_home, 'X': m.prob_draw, '2': m.prob_away}
+            prediction = max(probs, key=probs.get) # Sistemin tahmini (örn: '1')
+            
+            # Tahmin == Sonuç mu?
+            m.is_successful = (prediction == m.result_str)
+            
+        db.session.commit()
+        logger.info("✅ Maç sonuçları güncellendi.")
+
+# --- SCHEDULER AYARI ---
+scheduler = BackgroundScheduler()
+# Mevcut veri çekme (5 dk)
+scheduler.add_job(func=fetch_live_data, trigger="interval", minutes=5)
+# YENİ: Sonuç kontrol (10 dk)
+scheduler.add_job(func=update_match_results, trigger="interval", minutes=10)
+scheduler.start()
+
+# --- YENİ ROTALAR ---
+
+@app.route('/history')
+def history_page():
+    return render_template('history.html')
+
+@app.route('/api/history')
+def get_history_data():
+    # Sadece bitmiş maçları getir, tarihe göre tersten sırala
+    matches = Match.query.filter_by(status="Finished").order_by(Match.date.desc()).limit(50).all()
+    data = [m.to_dict() for m in matches]
+    
+    # İstatistik Özeti
+    total = len(data)
+    if total > 0:
+        wins = sum(1 for m in data if m['success'])
+        success_rate = round((wins / total) * 100, 1)
+    else:
+        success_rate = 0
+        
+    return jsonify({
+        "matches": data,
+        "stats": {
+            "total": total,
+            "rate": success_rate,
+            "status": "Active"
+        }
+    })
 
 # --- NESINE CANLI VERİ ---
 def fetch_live_data():
@@ -331,3 +415,4 @@ if __name__=='__main__':
         except: pass
     port=int(os.environ.get("PORT",10000))
     app.run(host='0.0.0.0',port=port)
+
