@@ -6,7 +6,6 @@ import atexit
 from datetime import datetime, timedelta
 from functools import lru_cache
 import pandas as pd
-import numpy as np
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -17,7 +16,6 @@ from dotenv import load_dotenv
 
 # --- YAPILANDIRMA ---
 load_dotenv()
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, 'data', 'final_unified_dataset.csv')
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
@@ -33,15 +31,13 @@ CORS(app)
 # Veritabanı Ayarları
 INSTANCE_DIR = os.path.join(BASE_DIR, 'instance')
 os.makedirs(INSTANCE_DIR, exist_ok=True)
-
 DB_PATH = os.path.join(INSTANCE_DIR, 'predictapro.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-
 logger.info(f"📍 Veritabanı yolu: {DB_PATH}")
 
-# --- VERİTABANI MODELİ ---
+# --- MODEL ---
 class Match(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), unique=True)
@@ -50,16 +46,12 @@ class Match(db.Model):
     away_team = db.Column(db.String(50))
     date = db.Column(db.DateTime)
     odds = db.Column(db.JSON)
-
     prob_home = db.Column(db.Float, default=0.0)
     prob_draw = db.Column(db.Float, default=0.0)
     prob_away = db.Column(db.Float, default=0.0)
     prob_over_25 = db.Column(db.Float, default=0.0)
     prob_btts = db.Column(db.Float, default=0.0)
-
     status = db.Column(db.String(20), default="Pending")
-
-    # --- Sonuç Alanları ---
     result_home = db.Column(db.Integer)
     result_away = db.Column(db.Integer)
     correct_ms = db.Column(db.Boolean, default=None)
@@ -91,7 +83,7 @@ class Match(db.Model):
             }
         }
 
-# --- GELİŞTİRİLMİŞ TAHMİN MOTORU ---
+# --- TAHMİN MOTORU ---
 class MatchPredictor:
     def __init__(self):
         self.team_stats = {}
@@ -103,13 +95,13 @@ class MatchPredictor:
     def load_database(self):
         logger.info(f"📂 Veritabanı başlatılıyor... Yol: {CSV_PATH}")
         if not os.path.exists(CSV_PATH):
-            logger.warning(f"⚠️ CSV Bulunamadı!")
+            logger.warning("⚠️ CSV Bulunamadı!")
             return
         try:
-            required_cols = ['home_team', 'away_team', 'home_score', 'away_score']
-            df = pd.read_csv(CSV_PATH, usecols=required_cols, encoding='utf-8', on_bad_lines='skip')
-            df['home_score'] = pd.to_numeric(df['home_score'], errors='coerce').fillna(0).astype('int32')
-            df['away_score'] = pd.to_numeric(df['away_score'], errors='coerce').fillna(0).astype('int32')
+            required_cols = ['home_team','away_team','home_score','away_score']
+            df = pd.read_csv(CSV_PATH,usecols=required_cols,encoding='utf-8',on_bad_lines='skip')
+            df['home_score'] = pd.to_numeric(df['home_score'],errors='coerce').fillna(0).astype('int32')
+            df['away_score'] = pd.to_numeric(df['away_score'],errors='coerce').fillna(0).astype('int32')
             self._calculate_stats(df)
             self.team_list = list(self.team_stats.keys())
             del df
@@ -136,54 +128,51 @@ class MatchPredictor:
             a_games = away_stats.loc[team,'count'] if team in away_stats.index else 0
             a_allowed = away_conceded.loc[team] if team in away_conceded.index else 0
 
-            att_h = (h_scored + 2*self.avg_home_goals)/(h_games+2)/self.avg_home_goals
-            def_h = (h_allowed + 2*self.avg_away_goals)/(h_games+2)/self.avg_away_goals
-            att_a = (a_scored + 2*self.avg_away_goals)/(a_games+2)/self.avg_away_goals
-            def_a = (a_allowed + 2*self.avg_home_goals)/(a_games+2)/self.avg_home_goals
-
-            self.team_stats[team] = {'att_h': att_h,'def_h': def_h,'att_a': att_a,'def_a': def_a}
+            att_h = (h_scored+2*self.avg_home_goals)/(h_games+2)/self.avg_home_goals
+            def_h = (h_allowed+2*self.avg_away_goals)/(h_games+2)/self.avg_away_goals
+            att_a = (a_scored+2*self.avg_away_goals)/(a_games+2)/self.avg_away_goals
+            def_a = (a_allowed+2*self.avg_home_goals)/(a_games+2)/self.avg_home_goals
+            self.team_stats[team] = {'att_h':att_h,'def_h':def_h,'att_a':att_a,'def_a':def_a}
 
     @lru_cache(maxsize=2048)
-    def find_team_cached(self, name):
+    def find_team_cached(self,name):
         if not name or not self.team_list: return None
         clean_name = name.lower().replace('sk','').replace('fk','').replace('fc','').strip()
-        match = process.extractOne(clean_name, self.team_list, scorer=fuzz.token_set_ratio, score_cutoff=55)
+        match = process.extractOne(clean_name,self.team_list,scorer=fuzz.token_set_ratio,score_cutoff=55)
         return match[0] if match else None
 
-    def predict(self, home, away):
+    def predict(self,home,away):
         home_db = self.find_team_cached(home)
         away_db = self.find_team_cached(away)
-        hs = self.team_stats.get(home_db, {'att_h':1.0,'def_h':1.0}) if home_db else {'att_h':1.0,'def_h':1.0}
-        as_ = self.team_stats.get(away_db, {'att_a':1.0,'def_a':1.0}) if away_db else {'att_a':1.0,'def_a':1.0}
+        hs = self.team_stats.get(home_db,{'att_h':1.0,'def_h':1.0}) if home_db else {'att_h':1.0,'def_h':1.0}
+        as_ = self.team_stats.get(away_db,{'att_a':1.0,'def_a':1.0}) if away_db else {'att_a':1.0,'def_a':1.0}
 
-        h_xg = hs['att_h'] * as_['def_a'] * self.avg_home_goals
-        a_xg = as_['att_a'] * hs['def_h'] * self.avg_away_goals
+        h_xg = hs['att_h']*as_['def_a']*self.avg_home_goals
+        a_xg = as_['att_a']*hs['def_h']*self.avg_away_goals
 
-        h_probs = [poisson.pmf(i, h_xg) for i in range(6)]
-        a_probs = [poisson.pmf(i, a_xg) for i in range(6)]
+        h_probs = [poisson.pmf(i,h_xg) for i in range(6)]
+        a_probs = [poisson.pmf(i,a_xg) for i in range(6)]
 
-        p_1, p_x, p_2, p_over, p_btts = 0,0,0,0,0
-
+        p_1=p_x=p_2=p_over=p_btts=0
         for h in range(6):
             for a in range(6):
-                p = h_probs[h] * a_probs[a]
-                if h > a: p_1 += p
-                elif h == a: p_x += p
-                else: p_2 += p
-                if h+a>2.5: p_over += p
-                if h>0 and a>0: p_btts += p
+                p = h_probs[h]*a_probs[a]
+                if h>a: p_1+=p
+                elif h==a: p_x+=p
+                else: p_2+=p
+                if h+a>2.5: p_over+=p
+                if h>0 and a>0: p_btts+=p
 
-        total_prob = p_1 + p_x + p_2
+        total_prob = p_1+p_x+p_2
         if total_prob>0:
             p_1/=total_prob
             p_x/=total_prob
             p_2/=total_prob
-
-        return p_1, p_x, p_2, p_over, p_btts
+        return p_1,p_x,p_2,p_over,p_btts
 
 predictor = MatchPredictor()
 
-# --- NESİNE / CANLI VERİ ---
+# --- NESINE CANLI VERİ ---
 def fetch_live_data():
     with app.app_context():
         auth_token = os.getenv("NESINE_AUTH")
@@ -194,10 +183,9 @@ def fetch_live_data():
         headers = {"User-Agent":"Mozilla/5.0","Authorization":auth_token,"Origin":"https://www.nesine.com"}
         try:
             logger.info("🔄 Nesine verisi çekiliyor...")
-            r = requests.get(url, headers=headers, timeout=15)
+            r = requests.get(url,headers=headers,timeout=15)
             d = r.json()
             if "sg" not in d or "EA" not in d["sg"]: return
-
             count=0
             for m in d["sg"]["EA"]:
                 if m.get("GT")!=1: continue
@@ -221,8 +209,7 @@ def fetch_live_data():
                             if o["N"]==1: odds["ust"]=o["O"]
                             elif o["N"]==2: odds["alt"]=o["O"]
                 if odds["ms1"]=="-": continue
-                p1,px,p2,pover,pbtts = predictor.predict(m.get("HN"), m.get("AN"))
-
+                p1,px,p2,pover,pbtts = predictor.predict(m.get("HN"),m.get("AN"))
                 existing = Match.query.filter_by(code=match_code).first()
                 if not existing:
                     new_match = Match(
@@ -244,22 +231,20 @@ def fetch_live_data():
         except Exception as e:
             logger.error(f"❌ Fetch Hatası: {e}")
 
-# --- Maç Sonucu Güncelleme ---
-def update_match_result(match_code, home_goals, away_goals):
+# --- Maç Sonucu Güncelle ---
+def update_match_result(match_code,home_goals,away_goals):
     with app.app_context():
         match = Match.query.filter_by(code=match_code).first()
         if not match: return
         match.result_home = home_goals
         match.result_away = away_goals
         match.status = "Finished"
-
         if home_goals>away_goals:
             match.correct_ms = match.prob_home>match.prob_draw and match.prob_home>match.prob_away
         elif home_goals==away_goals:
             match.correct_ms = match.prob_draw>match.prob_home and match.prob_draw>match.prob_away
         else:
             match.correct_ms = match.prob_away>match.prob_home and match.prob_away>match.prob_draw
-
         match.correct_over = (home_goals+away_goals>2.5 if match.prob_over_25>=0.5 else home_goals+away_goals<=2.5)
         match.correct_btts = (home_goals>0 and away_goals>0 if match.prob_btts>=0.5 else home_goals==0 or away_goals==0)
         db.session.commit()
@@ -290,7 +275,6 @@ atexit.register(lambda: scheduler.shutdown())
 # --- ROUTES ---
 @app.route('/')
 def index(): return render_template('index.html')
-
 @app.route('/history')
 def history_page(): return render_template('history.html')
 
@@ -300,19 +284,41 @@ def get_matches():
     cutoff = datetime.now() - timedelta(hours=2)
     matches = Match.query.filter(Match.date>=cutoff).all()
     data = [m.to_dict() for m in matches]
-    if sort_by=='prob_high':
-        data.sort(key=lambda x:max(x['probs']['1'],x['probs']['X'],x['probs']['2']),reverse=True)
-    elif sort_by=='prob_over':
-        data.sort(key=lambda x:x['probs']['over'],reverse=True)
-    else:
-        data.sort(key=lambda x:x['date'])
+    if sort_by=='prob_high': data.sort(key=lambda x:max(x['probs']['1'],x['probs']['X'],x['probs']['2']),reverse=True)
+    elif sort_by=='prob_over': data.sort(key=lambda x:x['probs']['over'],reverse=True)
+    else: data.sort(key=lambda x:x['date'])
     return jsonify(data)
 
 @app.route('/api/history')
 def get_history():
     matches = Match.query.filter(Match.status=="Finished").order_by(Match.date.desc()).all()
-    data = [m.to_dict() for m in matches]
-    return jsonify(data)
+    return jsonify([m.to_dict() for m in matches])
+
+@app.route('/api/stats')
+def get_stats():
+    matches = Match.query.filter(Match.status=="Finished").all()
+    total = len(matches)
+    correct_ms = sum(1 for m in matches if m.correct_ms)
+    correct_over = sum(1 for m in matches if m.correct_over)
+    correct_btts = sum(1 for m in matches if m.correct_btts)
+
+    weekly_data={}
+    for m in matches:
+        week=m.date.strftime("%Y-%W")
+        if week not in weekly_data: weekly_data[week]={"ms":0,"total":0}
+        weekly_data[week]["ms"] +=1 if m.correct_ms else 0
+        weekly_data[week]["total"] +=1
+    chart_labels=sorted(weekly_data.keys())
+    chart_data=[round(weekly_data[w]["ms"]/weekly_data[w]["total"]*100,2) for w in chart_labels]
+
+    return jsonify({
+        "total":total,
+        "ms_accuracy": round(correct_ms/total*100,2) if total else 0,
+        "over_accuracy": round(correct_over/total*100,2) if total else 0,
+        "btts_accuracy": round(correct_btts/total*100,2) if total else 0,
+        "weekly_labels": chart_labels,
+        "weekly_data": chart_data
+    })
 
 @app.route('/health')
 def health(): return jsonify({"status":"ok"}),200
